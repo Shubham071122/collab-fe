@@ -6,18 +6,25 @@ export interface User {
 
 export interface Project {
   id: string;
+  owner_id: string;
   name: string;
   description: string;
-  canvas: string; // JSON string of canvas state
-  created_at: string; // ISO timestamp
-  updated_at: string; // ISO timestamp
+  canvas: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Collaborator {
   id: string;
   name: string;
   email: string;
-  permission: "read" | "edit" | "owner"; // 'owner' is handled for the primary project owner
+  permission: "read" | "edit" | "owner";
+}
+
+export interface MemberInfo {
+  total_count: number;
+  owner: Collaborator;
+  collaborators: Collaborator[];
 }
 
 export interface ActionResponse<T = any> {

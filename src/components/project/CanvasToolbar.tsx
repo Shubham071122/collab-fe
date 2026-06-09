@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, CloudLightning, CloudCheck, Check } from "lucide-react";
+import { ArrowLeft, CloudCheck } from "lucide-react";
 import { Project } from "@/types";
 import { CollaboratorsList } from "./CollaboratorsList";
 import { updateProjectAction } from "../../../actions/project.actions";
+import { useAppStore } from "@/lib/store";
 import { toast } from "sonner";
 
 interface CanvasToolbarProps {
@@ -14,6 +15,9 @@ interface CanvasToolbarProps {
 }
 
 export const CanvasToolbar = ({ project, onRenameSuccess }: CanvasToolbarProps) => {
+  const { user } = useAppStore();
+  const isOwner = !!user && project.owner_id === user.id;
+
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(project.name);
 
@@ -102,7 +106,7 @@ export const CanvasToolbar = ({ project, onRenameSuccess }: CanvasToolbarProps) 
 
       {/* Right Area - Collaborators Stack */}
       <div className="shrink-0 flex items-center">
-        <CollaboratorsList projectId={project.id} />
+        <CollaboratorsList projectId={project.id} isOwner={isOwner} />
       </div>
     </div>
   );

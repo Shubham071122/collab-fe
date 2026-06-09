@@ -6,6 +6,7 @@ import { Search, Plus, Grid, List, SearchX } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { ProjectCard } from "./ProjectCard";
 import { CreateProjectModal } from "./CreateProjectModal";
+import { DeleteConfirmationModal } from "./DeleteConfirmationModal";
 import { Button } from "@/components/common/Button";
 import { Input } from "@/components/common/Input";
 import { getProjectsAction, deleteProjectAction } from "../../../actions/project.actions";
@@ -17,6 +18,7 @@ export const DashboardContent = () => {
   const { user, projects, setProjects, addProject, removeProject } = useAppStore();
   const [mounted, setMounted] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<{ id: string; name: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [greeting, setGreeting] = useState("Hello");
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
@@ -24,21 +26,27 @@ export const DashboardContent = () => {
 
   useEffect(() => {
     setMounted(true);
-    
+
+    const currentUser = useAppStore.getState().user;
+
+    if (!currentUser) {
+      router.push("/login");
+      return;
+    }
+
     const syncSession = async () => {
       const activeUser = await getCurrentUserAction();
       if (!activeUser) {
         useAppStore.getState().clearSession();
         router.push("/login");
+      } else {
+        useAppStore.getState().setUser(activeUser);
       }
     };
 
-    if (!user) {
-      router.push("/login");
-    } else {
-      syncSession();
-    }
-  }, [user, router]);
+    syncSession();
+  }, []);
+
 
   useEffect(() => {
     const hours = new Date().getHours();
@@ -70,17 +78,22 @@ export const DashboardContent = () => {
     }
   }, [searchQuery, mounted, user]);
 
-  const handleDeleteProject = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this project? This action cannot be undone.")) {
-      return;
+  const handleDeleteTrigger = (id: string) => {
+    const proj = projects.find((p) => p.id === id);
+    if (proj) {
+      setProjectToDelete({ id, name: proj.name });
     }
-    
-    setIsDeletingId(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!projectToDelete) return;
+    setIsDeletingId(projectToDelete.id);
     try {
-      const res = await deleteProjectAction(id);
+      const res = await deleteProjectAction(projectToDelete.id);
       if (res.success) {
-        removeProject(id);
+        removeProject(projectToDelete.id);
         toast.success("Project deleted successfully");
+        setProjectToDelete(null);
       } else {
         toast.error(res.message || "Failed to delete project");
       }
@@ -201,7 +214,8 @@ export const DashboardContent = () => {
             <ProjectCard
               key={proj.id}
               project={proj}
-              onDelete={handleDeleteProject}
+              currentUserId={user.id}
+              onDelete={handleDeleteTrigger}
               isDeleting={isDeletingId === proj.id}
             />
           ))}
@@ -215,6 +229,14 @@ export const DashboardContent = () => {
           addProject(newProj);
           router.push(`/project/${newProj.id}`);
         }}
+      />
+
+      <DeleteConfirmationModal
+        isOpen={!!projectToDelete}
+        onClose={() => setProjectToDelete(null)}
+        onConfirm={confirmDelete}
+        projectName={projectToDelete?.name}
+        isPending={isDeletingId !== null}
       />
     </div>
   );

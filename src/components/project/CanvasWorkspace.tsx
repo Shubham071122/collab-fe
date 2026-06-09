@@ -5,6 +5,7 @@ import { MousePointer2, Hand, StickyNote, Type, Square, MessageSquare, ZoomIn, Z
 import { toast } from "sonner";
 
 import { useWebSocket } from "@/hooks/useWebSocket";
+import { addProjectToCookieAction } from "../../../actions/project.actions";
 
 interface CanvasWorkspaceProps {
   projectId: string;
@@ -26,6 +27,13 @@ export const CanvasWorkspace = ({ projectId }: CanvasWorkspaceProps) => {
   const [activeTool, setActiveTool] = useState<string>("select");
   const [zoom, setZoom] = useState<number>(100);
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const registerProject = async () => {
+      await addProjectToCookieAction(projectId);
+    };
+    registerProject();
+  }, [projectId]);
 
   useEffect(() => {
     if (isConnected) {

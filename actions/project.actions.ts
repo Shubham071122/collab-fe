@@ -106,16 +106,27 @@ export async function getProjectByIdAction(
     }
 
     const project = json.data as Project;
-
-    const ids = await getUserProjectIds(userId);
-    if (!ids.includes(project.id)) {
-      ids.unshift(project.id);
-      await saveUserProjectIds(userId, ids);
-    }
-
     return { success: true, data: project };
   } catch (err) {
     return { success: false, message: "Network error." };
+  }
+}
+
+export async function addProjectToCookieAction(
+  id: string
+): Promise<ActionResponse<null>> {
+  const userId = await getUserIdFromToken();
+  if (!userId) return { success: false, message: "Unauthorized." };
+
+  try {
+    const ids = await getUserProjectIds(userId);
+    if (!ids.includes(id)) {
+      ids.unshift(id);
+      await saveUserProjectIds(userId, ids);
+    }
+    return { success: true };
+  } catch {
+    return { success: false, message: "Failed to update project list." };
   }
 }
 
