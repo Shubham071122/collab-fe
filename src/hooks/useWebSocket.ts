@@ -26,12 +26,20 @@ export function useWebSocket(projectId: string) {
     if (!projectId || !user) return;
 
     const token = getCookie("auth_token");
-    const wsScheme = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const backendHost = "localhost:8080";
     
-    const url = `${wsScheme}//${backendHost}/api/v1/collaboration/project/${projectId}${
-      token ? `?token=${encodeURIComponent(token)}` : ""
-    }`;
+    let url = "";
+    if (process.env.NEXT_PUBLIC_WS_URL) {
+      const wsBase = process.env.NEXT_PUBLIC_WS_URL.replace(/\/$/, "");
+      url = `${wsBase}/api/v1/collaboration/project/${projectId}${
+        token ? `?token=${encodeURIComponent(token)}` : ""
+      }`;
+    } else {
+      const wsScheme = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const backendHost = "localhost:8080";
+      url = `${wsScheme}//${backendHost}/api/v1/collaboration/project/${projectId}${
+        token ? `?token=${encodeURIComponent(token)}` : ""
+      }`;
+    }
     
     let socket: WebSocket;
     try {
