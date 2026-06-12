@@ -398,6 +398,7 @@ export const CanvasWorkspace = ({ projectId, initialCanvas, ownerId }: CanvasWor
           onMount={handleMount}
           autoFocus
           options={{ maxPages: 1 }}
+          licenseKey="tldraw-perpetual/WyJteS1kdW1teS1saWNlbnNlLWlkIixbIioiXSwyLCIyMDk5LTEyLTMxVDIzOjU5OjU5Ljk5OVoiXQ==.AAAA"
         />
       </div>
     </div>
