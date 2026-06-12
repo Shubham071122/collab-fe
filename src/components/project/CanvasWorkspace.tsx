@@ -51,7 +51,40 @@ export const CanvasWorkspace = ({ projectId, initialCanvas, ownerId }: CanvasWor
   const localStorageDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    // Intercept and silence tldraw license console logs in production/development
+    const originalConsoleError = window.console.error;
+    const originalConsoleWarn = window.console.warn;
+
+    window.console.error = (...args: any[]) => {
+      const msg = args.join(" ");
+      if (
+        msg.includes("No tldraw license key provided") ||
+        msg.includes("A license is required for production deployments") ||
+        msg.includes("sales@tldraw.com")
+      ) {
+        return;
+      }
+      originalConsoleError.apply(console, args);
+    };
+
+    window.console.warn = (...args: any[]) => {
+      const msg = args.join(" ");
+      if (
+        msg.includes("No tldraw license key provided") ||
+        msg.includes("A license is required for production deployments") ||
+        msg.includes("sales@tldraw.com")
+      ) {
+        return;
+      }
+      originalConsoleWarn.apply(console, args);
+    };
+
     useAppStore.getState().setSyncStatus("saved");
+
+    return () => {
+      window.console.error = originalConsoleError;
+      window.console.warn = originalConsoleWarn;
+    };
   }, []);
 
   useEffect(() => {

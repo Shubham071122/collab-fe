@@ -36,7 +36,7 @@ export async function loginAction(
     const cookieStore = await cookies();
     cookieStore.set(COOKIE_NAME, token, {
       path: "/",
-      httpOnly: true,
+      httpOnly: false,
       secure: process.env.NODE_ENV === "production",
       maxAge: rememberMe ? 60 * 60 * 24 * 30 : undefined, // 30 days or session
       sameSite: "lax",
@@ -101,7 +101,7 @@ export async function signupAction(
     const cookieStore = await cookies();
     cookieStore.set(COOKIE_NAME, token, {
       path: "/",
-      httpOnly: true,
+      httpOnly: false,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
     });
@@ -197,7 +197,7 @@ export async function verifyOtpAction(
     const cookieStore = await cookies();
     cookieStore.set(COOKIE_NAME, token, {
       path: "/",
-      httpOnly: true,
+      httpOnly: false,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
     });
