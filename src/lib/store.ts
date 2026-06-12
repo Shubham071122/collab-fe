@@ -6,12 +6,14 @@ interface AppState {
   user: User | null;
   projects: Project[];
   isLoading: boolean;
+  syncStatus: "saved" | "saving";
   
   setUser: (user: User | null) => void;
   setProjects: (projects: Project[]) => void;
   addProject: (project: Project) => void;
   removeProject: (projectId: string) => void;
   clearSession: () => void;
+  setSyncStatus: (status: "saved" | "saving") => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -20,6 +22,7 @@ export const useAppStore = create<AppState>()(
       user: null,
       projects: [],
       isLoading: false,
+      syncStatus: "saved",
 
       setUser: (user) => set({ user }),
       setProjects: (projects) => set({ projects }),
@@ -30,6 +33,7 @@ export const useAppStore = create<AppState>()(
           projects: state.projects.filter((p) => p.id !== projectId),
         })),
       clearSession: () => set({ user: null, projects: [] }),
+      setSyncStatus: (status) => set({ syncStatus: status }),
     }),
     {
       name: "collab-app-storage",

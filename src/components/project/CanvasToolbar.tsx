@@ -15,7 +15,7 @@ interface CanvasToolbarProps {
 }
 
 export const CanvasToolbar = ({ project, onRenameSuccess }: CanvasToolbarProps) => {
-  const { user } = useAppStore();
+  const { user, syncStatus } = useAppStore();
   const isOwner = !!user && project.owner_id === user.id;
 
   const [isEditing, setIsEditing] = useState(false);
@@ -60,7 +60,7 @@ export const CanvasToolbar = ({ project, onRenameSuccess }: CanvasToolbarProps) 
   };
 
   return (
-    <div className="w-full h-14 bg-white border-b border-[#e5e5e7] px-4 flex items-center justify-between z-40 relative select-none">
+    <div className="w-full h-14 bg-white border-b border-[#e5e5e7] px-4 flex items-center justify-between z-[500] relative select-none">
       {/* Left Area - Back button & Project Title */}
       <div className="flex items-center gap-3.5 min-w-0">
         <Link
@@ -97,10 +97,20 @@ export const CanvasToolbar = ({ project, onRenameSuccess }: CanvasToolbarProps) 
           )}
 
           {/* Cloud Sync State */}
-          <div className="hidden sm:flex items-center gap-1 text-[10px] text-[#459e59] bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full font-medium shrink-0 tracking-wide select-none">
-            <CloudCheck size={11} className="text-[#459e59]" />
-            <span>SAVED</span>
-          </div>
+          {syncStatus === "saving" ? (
+            <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-amber-600 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-full font-medium shrink-0 tracking-wide select-none animate-pulse">
+              <svg className="animate-spin h-2.5 w-2.5 text-amber-600" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              <span>Saving...</span>
+            </div>
+          ) : (
+            <div className="hidden sm:flex items-center gap-1 text-[10px] text-[#459e59] bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full font-medium shrink-0 tracking-wide select-none">
+              <CloudCheck size={11} className="text-[#459e59]" />
+              <span>Saved</span>
+            </div>
+          )}
         </div>
       </div>
 

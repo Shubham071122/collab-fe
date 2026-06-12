@@ -28,15 +28,17 @@ export function proxy(request: NextRequest) {
   const token = request.cookies.get(COOKIE_NAME)?.value;
   const payload = token ? getPayload(token) : null;
   const isValid = payload && !isTokenExpired(payload);
+  const isVerified = isValid && payload.is_verified === true;
 
   const isAuthRoute = AUTH_ROUTES.includes(pathname);
+  const isVerifyEmailRoute = pathname === "/verify-email";
   const isProtectedRoute = PROTECTED_PREFIXES.some((prefix) =>
     pathname.startsWith(prefix)
   );
 
   // 1. Logged Out Redirects
   if (!isValid) {
-    if (isProtectedRoute) {
+    if (isProtectedRoute || isVerifyEmailRoute) {
       const response = NextResponse.redirect(new URL("/login", request.url));
       if (token) response.cookies.delete(COOKIE_NAME);
       return response;
@@ -44,7 +46,22 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. Already Logged In Redirects
+  // 2. Unverified User Redirects (The Cage)
+  // If user is logged in but NOT verified, they ONLY belong on the verify-email page.
+  if (!isVerified) {
+    if (!isVerifyEmailRoute) {
+      return NextResponse.redirect(new URL("/verify-email", request.url));
+    }
+    return NextResponse.next();
+  }
+
+  // 3. Verified User Redirects
+  // If they are verified, they should NEVER be on the verify-email page.
+  if (isVerifyEmailRoute) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  // 4. Already Logged In Redirects
   if (isAuthRoute) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }

@@ -167,3 +167,72 @@ export async function getCurrentUserAction(): Promise<User | null> {
     return null;
   }
 }
+
+export async function verifyOtpAction(
+  email: string,
+  code: string
+): Promise<ActionResponse<User>> {
+  if (!email || !code) {
+    return { success: false, message: "Email and code are required." };
+  }
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/v1/auth/verify-otp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, code }),
+    });
+
+    const json = await res.json();
+
+    if (!res.ok || !json.success) {
+      return {
+        success: false,
+        message: json.error || json.message || "Invalid verification code.",
+      };
+    }
+
+    const { token, user } = json.data;
+
+    const cookieStore = await cookies();
+    cookieStore.set(COOKIE_NAME, token, {
+      path: "/",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+    });
+
+    return { success: true, message: "Email verified successfully!", data: user };
+  } catch (err) {
+    return { success: false, message: "Network error. Please make sure the backend is running." };
+  }
+}
+
+export async function resendOtpAction(
+  email: string
+): Promise<ActionResponse<null>> {
+  if (!email) {
+    return { success: false, message: "Email is required." };
+  }
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/v1/auth/resend-otp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+
+    const json = await res.json();
+
+    if (!res.ok || !json.success) {
+      return {
+        success: false,
+        message: json.error || json.message || "Failed to resend verification code.",
+      };
+    }
+
+    return { success: true, message: "Verification code resent successfully!" };
+  } catch (err) {
+    return { success: false, message: "Network error. Please make sure the backend is running." };
+  }
+}

@@ -28,14 +28,14 @@ export function useWebSocket(projectId: string) {
     const token = getCookie("auth_token");
     const wsScheme = window.location.protocol === "https:" ? "wss:" : "ws:";
     const backendHost = "localhost:8080";
-    const url = `${wsScheme}//${backendHost}/api/v1/collaboration/project/${projectId}`;
-
-    // Pass subprotocols: standard JWT bearer auth token mapping
-    const protocols = token ? ["Bearer", token] : [];
+    
+    const url = `${wsScheme}//${backendHost}/api/v1/collaboration/project/${projectId}${
+      token ? `?token=${encodeURIComponent(token)}` : ""
+    }`;
     
     let socket: WebSocket;
     try {
-      socket = new WebSocket(url, protocols);
+      socket = new WebSocket(url);
       socketRef.current = socket;
     } catch (err) {
       console.error("Failed to establish WebSocket:", err);

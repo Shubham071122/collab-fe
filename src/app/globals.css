@@ -133,3 +133,50 @@ body {
   box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.06);
   border-color: #c7c7cc;
 }
+
+/* Hide tldraw watermark and licensing production messages */
+.tl-watermark_SEE-LICENSE,
+[data-testid="tl-watermark-unlicensed"],
+[data-testid="tl-watermark-licensed"] {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
+/* Hide tldraw theme option in menu for read-only users */
+.tldraw-readonly [data-testid="menu-item.toggle-dark-mode"],
+.tldraw-readonly [data-testid="menu-item.theme"],
+body.tldraw-readonly-active [data-testid^="menu-item."][data-testid*="theme"],
+body.tldraw-readonly-active [data-testid^="menu-item."][data-testid*="dark-mode"] {
+  display: none !important;
+}
+
+/* Hide tldraw editing UI elements for read-only users */
+.tldraw-readonly [data-testid="toolbar"],
+.tldraw-readonly [data-testid="style-panel"],
+.tldraw-readonly .tlui-toolbar,
+.tldraw-readonly .tlui-style-panel,
+.tldraw-readonly .tl-toolbar,
+.tldraw-readonly .tl-style-panel,
+body.tldraw-readonly-active [data-testid="toolbar"],
+body.tldraw-readonly-active [data-testid="style-panel"],
+body.tldraw-readonly-active .tlui-toolbar,
+body.tldraw-readonly-active .tlui-style-panel,
+body.tldraw-readonly-active .tl-toolbar,
+body.tldraw-readonly-active .tl-style-panel,
+body.tldraw-readonly-active .tlui-menu-zone,
+body.tldraw-readonly-active .tlui-navigation-panel,
+body.tldraw-readonly-active .tlui-zoom-menu,
+body.tldraw-readonly-active .tlui-help-menu,
+body.tldraw-readonly-active [data-testid="help-menu"],
+body.tldraw-readonly-active [data-testid="zoom-menu"],
+body.tldraw-readonly-active [data-testid="actions-menu"],
+body.tldraw-readonly-active [data-testid="quick-actions"] {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
+

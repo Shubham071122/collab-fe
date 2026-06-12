@@ -1,32 +1,58 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { MousePointer2, Hand, StickyNote, Type, Square, MessageSquare, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
-import { toast } from "sonner";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Tldraw, Editor, getSnapshot, loadSnapshot } from "@tldraw/tldraw";
+import "@tldraw/tldraw/tldraw.css";
 
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { addProjectToCookieAction } from "../../../actions/project.actions";
+import { getProjectMembersAction } from "../../../actions/collaboration.actions";
+import { useAppStore } from "@/lib/store";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+
+const CURSOR_COLORS = [
+  "#FF6B6B", // coral
+  "#4D96FF", // soft blue
+  "#6BCB77", // pastel green
+  "#FFD93D", // soft yellow
+  "#B983FF", // lavender
+  "#FF8AAE", // pink
+  "#6EC72D", // bright green
+  "#FFA45B", // pastel orange
+  "#00ADB5", // teal
+  "#FF2E93", // dark pink
+];
+
+function getUserCursorColor(userId: string) {
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) {
+    hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % CURSOR_COLORS.length;
+  return CURSOR_COLORS[index];
+}
 
 interface CanvasWorkspaceProps {
   projectId: string;
+  initialCanvas: string;
+  ownerId: string;
 }
 
-interface MockItem {
-  id: string;
-  type: "note" | "text" | "shape";
-  content: string;
-  x: number;
-  y: number;
-  color?: string;
-  width?: number;
-  height?: number;
-}
-
-export const CanvasWorkspace = ({ projectId }: CanvasWorkspaceProps) => {
+export const CanvasWorkspace = ({ projectId, initialCanvas, ownerId }: CanvasWorkspaceProps) => {
+  const router = useRouter();
   const { isConnected, lastMessage, sendMessage } = useWebSocket(projectId);
-  const [activeTool, setActiveTool] = useState<string>("select");
-  const [zoom, setZoom] = useState<number>(100);
-  const canvasRef = useRef<HTMLDivElement>(null);
+  const { user } = useAppStore();
+  const [editor, setEditor] = useState<Editor | null>(null);
+  const isOwner = !!user && user.id === ownerId;
+  const [isReadOnly, setIsReadOnly] = useState(!isOwner);
+  const [checkingPermissions, setCheckingPermissions] = useState(!isOwner);
+
+  const localStorageDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    useAppStore.getState().setSyncStatus("saved");
+  }, []);
 
   useEffect(() => {
     const registerProject = async () => {
@@ -42,276 +68,306 @@ export const CanvasWorkspace = ({ projectId }: CanvasWorkspaceProps) => {
   }, [isConnected, sendMessage]);
 
   useEffect(() => {
-    if (lastMessage) {
-      console.log("WebSocket event from backend:", lastMessage);
+    if (isOwner) {
+      setIsReadOnly(false);
+      setCheckingPermissions(false);
+      return;
     }
-  }, [lastMessage]);
-  
-  // Interactive mock items
-  const [items, setItems] = useState<MockItem[]>([
-    {
-      id: "i1",
-      type: "note",
-      content: "Brainstorm onboarding flows & copy writeups",
-      x: 120,
-      y: 180,
-      color: "#fdfdf0", // yellow
-    },
-    {
-      id: "i2",
-      type: "note",
-      content: "Ensure all buttons have Apple hover spring physics",
-      x: 480,
-      y: 140,
-      color: "#f6fbf7", // green
-    },
-    {
-      id: "i3",
-      type: "text",
-      content: "Core Platform Architecture V1",
-      x: 310,
-      y: 80,
-    },
-    {
-      id: "i4",
-      type: "shape",
-      content: "Database Server",
-      x: 320,
-      y: 340,
-      width: 140,
-      height: 70,
-    },
-  ]);
 
-  // Drag state for canvas items
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-
-  const handleItemMouseDown = (e: React.MouseEvent, item: MockItem) => {
-    if (activeTool !== "select") return;
-    e.stopPropagation();
-    setDraggingId(item.id);
-    
-    // Calculate relative offset of mouse pointer inside the item
-    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-    setDragOffset({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    });
-  };
-
-  const handleCanvasMouseMove = (e: React.MouseEvent) => {
-    if (!draggingId || !canvasRef.current) return;
-    
-    // Get mouse coordinates relative to the canvas container
-    const canvasRect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - canvasRect.left - dragOffset.x;
-    const y = e.clientY - canvasRect.top - dragOffset.y;
-    
-    setItems((prev) =>
-      prev.map((item) => (item.id === draggingId ? { ...item, x: Math.max(0, x), y: Math.max(0, y) } : item))
-    );
-  };
-
-  const handleCanvasMouseUp = () => {
-    setDraggingId(null);
-  };
-
-  // Add a new sticky note relative to center
-  const handleAddStickyNote = (e: React.MouseEvent) => {
-    if (activeTool !== "note") return;
-    
-    const canvasRect = canvasRef.current?.getBoundingClientRect();
-    if (!canvasRect) return;
-
-    // Get position relative to canvas container
-    const x = e.clientX - canvasRect.left - 75;
-    const y = e.clientY - canvasRect.top - 75;
-
-    const colors = ["#fdfdf0", "#f6fbf7", "#f5fbfd"];
-    const randomColor = colors[Math.floor(Math.random() * colors.length)];
-
-    const newItem: MockItem = {
-      id: `item-${Date.now()}`,
-      type: "note",
-      content: "Double click to edit note",
-      x: Math.max(20, x),
-      y: Math.max(20, y),
-      color: randomColor,
+    const checkPermissions = async () => {
+      if (!user) return;
+      try {
+        const res = await getProjectMembersAction(projectId);
+        if (res.success && res.data) {
+          const { collaborators } = res.data;
+          const currentCollab = collaborators.find((c) => c.id === user.id);
+          
+          if (currentCollab && currentCollab.permission === "edit") {
+            setIsReadOnly(false);
+          } else {
+            setIsReadOnly(true);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to check project permissions:", err);
+        setIsReadOnly(true);
+      } finally {
+        setCheckingPermissions(false);
+      }
     };
 
-    setItems((prev) => [...prev, newItem]);
-    setActiveTool("select"); // switch back
-    toast.success("Sticky note added! Drag it anywhere.");
-  };
+    checkPermissions();
+  }, [projectId, user, isOwner]);
 
-  // Double click to edit content
-  const handleItemDoubleClick = (id: string) => {
-    const newContent = prompt("Edit content:");
-    if (newContent !== null) {
-      setItems((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, content: newContent || "Empty Content" } : item))
-      );
+  useEffect(() => {
+    if (editor) {
+      editor.updateInstanceState({ isReadonly: isReadOnly });
     }
-  };
+    document.body.classList.toggle("tldraw-readonly-active", isReadOnly);
+    return () => {
+      document.body.classList.remove("tldraw-readonly-active");
+    };
+  }, [editor, isReadOnly]);
 
-  // Zoom helpers
-  const handleZoomIn = () => setZoom((prev) => Math.min(prev + 10, 150));
-  const handleZoomOut = () => setZoom((prev) => Math.max(prev - 10, 50));
+  const saveToLocalStorageDebounced = useCallback(
+    (editorInstance: Editor) => {
+      if (localStorageDebounceRef.current) {
+        clearTimeout(localStorageDebounceRef.current);
+      }
+      localStorageDebounceRef.current = setTimeout(() => {
+        try {
+          const snapshot = getSnapshot(editorInstance.store);
+          localStorage.setItem(`collab_canvas_${projectId}`, JSON.stringify(snapshot));
+          useAppStore.getState().setSyncStatus("saved");
+        } catch (err) {
+          console.error("Failed to save canvas to localStorage:", err);
+          useAppStore.getState().setSyncStatus("saved");
+        }
+      }, 250); 
+    },
+    [projectId]
+  );
+  
+  useEffect(() => {
+    return () => {
+      if (localStorageDebounceRef.current) {
+        clearTimeout(localStorageDebounceRef.current);
+      }
+    };
+  }, []);
 
-  const tools = [
-    { id: "select", icon: <MousePointer2 size={16} />, label: "Select (V)" },
-    { id: "hand", icon: <Hand size={16} />, label: "Pan (H)" },
-    { id: "note", icon: <StickyNote size={16} />, label: "Sticky Note (N)" },
-    { id: "shape", icon: <Square size={16} />, label: "Shape (S)" },
-    { id: "text", icon: <Type size={16} />, label: "Text (T)" },
-  ];
+  const handleMount = useCallback(
+    (editorInstance: Editor) => {
+      setEditor(editorInstance);
+
+      let loadedSnapshot: any = null;
+
+      if (initialCanvas) {
+        try {
+          loadedSnapshot = JSON.parse(initialCanvas);
+        } catch (e) {
+          console.error("Failed to parse initial canvas snapshot:", e);
+        }
+      } else {
+        const localData = localStorage.getItem(`collab_canvas_${projectId}`);
+        if (localData) {
+          try {
+            loadedSnapshot = JSON.parse(localData);
+          } catch (e) {
+            console.error("Failed to parse canvas data from localStorage:", e);
+          }
+        }
+      }
+
+      if (loadedSnapshot && loadedSnapshot.store) {
+        if (!loadedSnapshot.schema) {
+          try {
+            loadedSnapshot.schema = editorInstance.store.schema.serialize();
+          } catch (e) {
+            console.error("Failed to serialize editor schema:", e);
+          }
+        }
+
+        try {
+          loadSnapshot(editorInstance.store, loadedSnapshot);
+        } catch (e) {
+          console.error("Failed to load snapshot into editor:", e);
+        }
+      }
+
+      if (user) {
+        try {
+          editorInstance.user.updateUserPreferences({
+            name: user.name,
+            color: getUserCursorColor(user.id),
+          });
+        } catch (e) {
+          console.error("Failed to update user preferences:", e);
+        }
+      }
+    },
+    [initialCanvas, projectId, user]
+  );
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const unsubscribe = editor.store.listen(
+      (event) => {
+        if (event.source !== "remote") {
+          const addedDoc: Record<string, any> = {};
+          const updatedDoc: Record<string, any> = {};
+          const removedDoc: Record<string, any> = {};
+
+          const addedPres: Record<string, any> = {};
+          const updatedPres: Record<string, any> = {};
+          const removedPres: Record<string, any> = {};
+
+          for (const [id, record] of Object.entries(event.changes.added)) {
+            if (id.startsWith("instance_presence")) {
+              addedPres[id] = record;
+            } else if (
+              id.startsWith("shape:") ||
+              id.startsWith("page:") ||
+              id.startsWith("asset:") ||
+              id.startsWith("binding:") ||
+              id.startsWith("document:")
+            ) {
+              addedDoc[id] = record;
+            }
+          }
+
+          for (const [id, change] of Object.entries(event.changes.updated)) {
+            if (id.startsWith("instance_presence")) {
+              updatedPres[id] = change;
+            } else if (
+              id.startsWith("shape:") ||
+              id.startsWith("page:") ||
+              id.startsWith("asset:") ||
+              id.startsWith("binding:") ||
+              id.startsWith("document:")
+            ) {
+              updatedDoc[id] = change;
+            }
+          }
+
+          for (const [id, record] of Object.entries(event.changes.removed)) {
+            if (id.startsWith("instance_presence")) {
+              removedPres[id] = record;
+            } else if (
+              id.startsWith("shape:") ||
+              id.startsWith("page:") ||
+              id.startsWith("asset:") ||
+              id.startsWith("binding:") ||
+              id.startsWith("document:")
+            ) {
+              removedDoc[id] = record;
+            }
+          }
+
+          if (!isReadOnly) {
+            // Always save to localStorage for local state preservation (camera zoom/pan, selections, shape changes)
+            saveToLocalStorageDebounced(editor);
+
+            const hasDocChanges = 
+              Object.keys(addedDoc).length > 0 || 
+              Object.keys(updatedDoc).length > 0 || 
+              Object.keys(removedDoc).length > 0;
+
+            if (hasDocChanges) {
+              useAppStore.getState().setSyncStatus("saving");
+              sendMessage("canvas_change", {
+                added: addedDoc,
+                updated: updatedDoc,
+                removed: removedDoc,
+              });
+            }
+          }
+
+          const hasPresChanges = 
+            Object.keys(addedPres).length > 0 || 
+            Object.keys(updatedPres).length > 0 || 
+            Object.keys(removedPres).length > 0;
+
+          if (hasPresChanges) {
+            console.log("WebSocket sending presence_change", { addedPres, updatedPres, removedPres });
+            sendMessage("presence_change", {
+              added: addedPres,
+              updated: updatedPres,
+              removed: removedPres,
+            });
+          }
+        }
+      },
+      { scope: "all", source: "all" }
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [editor, isReadOnly, saveToLocalStorageDebounced, sendMessage]);
+
+  useEffect(() => {
+    if (!editor || !lastMessage || !user) return;
+
+    if (lastMessage.userId !== user.id) {
+      if (lastMessage.type === "canvas_change" || lastMessage.type === "presence_change") {
+        // console.log("WebSocket received remote change:", lastMessage.type, lastMessage.payload);
+        const { added, updated, removed } = lastMessage.payload;
+
+        editor.store.mergeRemoteChanges(() => {
+          if (added && Object.keys(added).length > 0) {
+            editor.store.put(Object.values(added));
+          }
+          if (updated && Object.keys(updated).length > 0) {
+            const updatedRecords = Object.values(updated).map((change: any) => change[1]);
+            editor.store.put(updatedRecords);
+          }
+          if (removed && Object.keys(removed).length > 0) {
+            editor.store.remove(Object.keys(removed) as any[]);
+          }
+        });
+      }
+    }
+  }, [editor, lastMessage, user]);
+
+  useEffect(() => {
+    if (!lastMessage || !user) return;
+
+    if (lastMessage.type === "permission_changed") {
+      const { permission } = lastMessage.payload;
+      console.log("Permission updated in real-time:", permission);
+      if (permission === "read") {
+        setIsReadOnly(true);
+      } else if (permission === "edit") {
+        setIsReadOnly(false);
+      }
+    } else if (lastMessage.type === "access_revoked") {
+      console.log("Access revoked in real-time. Redirecting...");
+      toast.error("Your access to this project has been revoked by the owner.");
+      router.push("/dashboard");
+    } else if (lastMessage.type === "canvas_saved") {
+      console.log("Canvas successfully saved to database");
+      useAppStore.getState().setSyncStatus("saved");
+    }
+  }, [lastMessage, user, router]);
+
+  if (checkingPermissions) {
+    return (
+      <div className="flex-grow flex items-center justify-center min-h-[60vh] bg-[#fafafa]">
+        <div className="flex flex-col items-center gap-3">
+          <svg
+            className="animate-spin h-6 w-6 text-black"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            />
+          </svg>
+          <span className="text-xs text-[#737373] tracking-wide font-medium">
+            Loading Canvas...
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex-1 w-full relative overflow-hidden flex flex-col select-none">
-      {/* Workspace Canvas Area */}
-      <div
-        ref={canvasRef}
-        onMouseMove={handleCanvasMouseMove}
-        onMouseUp={handleCanvasMouseUp}
-        onClick={handleAddStickyNote}
-        className={`flex-grow h-full relative overflow-hidden select-none bg-white ${
-          activeTool === "hand" ? "cursor-grab active:cursor-grabbing" : "cursor-default"
-        }`}
-        style={{
-          backgroundImage: "radial-gradient(#e5e5e7 1.5px, transparent 1.5px)",
-          backgroundSize: "24px 24px",
-          transform: `scale(${zoom / 100})`,
-          transformOrigin: "center center",
-          transition: draggingId ? "none" : "transform 0.1s ease-out",
-        }}
-      >
-        {/* Helper Instructions Badge */}
-        <div className="absolute top-4 left-4 pointer-events-none z-10 px-3.5 py-1.5 text-[10px] font-semibold text-[#737373] tracking-widest uppercase bg-white border border-[#e5e5e7] rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
-          {activeTool === "note" ? "Click canvas to place Sticky Note" : "Selection Tool Active"}
-        </div>
-
-        {/* Canvas Connections (Background decorative paths) */}
-        <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
-          <path
-            d="M 220 250 Q 300 280 390 340"
-            fill="none"
-            stroke="#e5e5e7"
-            strokeWidth="2"
-            strokeDasharray="5 5"
-          />
-        </svg>
-
-        {/* Render Items */}
-        {items.map((item) => (
-          <div
-            key={item.id}
-            onMouseDown={(e) => handleItemMouseDown(e, item)}
-            onDoubleClick={() => handleItemDoubleClick(item.id)}
-            style={{
-              left: `${item.x}px`,
-              top: `${item.y}px`,
-            }}
-            className={`absolute z-10 select-none group touch-none ${
-              activeTool === "select" ? "cursor-move" : "pointer-events-none"
-            } ${draggingId === item.id ? "scale-[1.02] shadow-lg" : ""}`}
-          >
-            {item.type === "note" && (
-              <div
-                style={{ backgroundColor: item.color }}
-                className="w-[150px] h-[150px] border border-[#e5e5e7] p-4 flex flex-col justify-between shadow-[0_4px_15px_rgba(0,0,0,0.03)] hover:shadow-md transition-shadow duration-200 select-none rounded-lg"
-              >
-                <p className="text-xs text-black/85 leading-relaxed font-sans overflow-hidden">
-                  {item.content}
-                </p>
-                <div className="flex items-center justify-between text-[9px] font-semibold tracking-wider text-[#737373] select-none">
-                  <span>STICKY</span>
-                  <span className="opacity-0 group-hover:opacity-100 transition-opacity">DBL-CLK TO EDIT</span>
-                </div>
-              </div>
-            )}
-
-            {item.type === "text" && (
-              <div className="px-3 py-1.5 bg-transparent border-0 select-none">
-                <span className="text-sm font-bold tracking-tight text-black font-sans leading-none uppercase">
-                  {item.content}
-                </span>
-              </div>
-            )}
-
-            {item.type === "shape" && (
-              <div
-                style={{ width: item.width || 120, height: item.height || 60 }}
-                className="bg-white border-2 border-black/80 rounded-xl flex items-center justify-center p-3 shadow-sm select-none hover:shadow-md transition-shadow"
-              >
-                <span className="text-xs font-semibold text-black tracking-tight text-center">
-                  {item.content}
-                </span>
-              </div>
-            )}
-          </div>
-        ))}
-
-        {/* Mock collaborator pointer simulation inside the canvas */}
-        <div className="absolute top-[220px] left-[680px] pointer-events-none z-20">
-          <MousePointer2 size={16} fill="#f43f5e" className="text-[#f43f5e] drop-shadow-sm rotate-[-85deg]" />
-          <div className="absolute top-4 left-3 bg-[#f43f5e] text-white font-medium text-[9px] py-0.5 px-2 rounded-md whitespace-nowrap">
-            Sarah Chen is editing
-          </div>
-        </div>
-      </div>
-
-      {/* Center Floating Whiteboard Toolbar */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white border border-[#e5e5e7] px-3.5 py-2 rounded-2xl shadow-[0_15px_40px_-5px_rgba(0,0,0,0.08)] z-40 flex items-center gap-1">
-        {tools.map((tool) => (
-          <button
-            key={tool.id}
-            onClick={() => {
-              setActiveTool(tool.id);
-              if (tool.id === "note") {
-                toast.info("Click anywhere on the board to drop a sticky note.");
-              }
-            }}
-            className={`p-2 rounded-xl transition-all duration-200 cursor-pointer ${
-              activeTool === tool.id
-                ? "bg-black text-white"
-                : "text-[#737373] hover:text-black hover:bg-[#f5f5f7]"
-            }`}
-            title={tool.label}
-          >
-            {tool.icon}
-          </button>
-        ))}
-      </div>
-
-      {/* Bottom Left Controls (Zoom) */}
-      <div className="absolute bottom-6 left-6 bg-white border border-[#e5e5e7] p-1.5 rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.04)] z-40 flex items-center gap-1.5 text-xs select-none">
-        <button
-          onClick={handleZoomOut}
-          className="p-1.5 rounded-lg text-[#737373] hover:text-black hover:bg-[#f5f5f7] cursor-pointer"
-          title="Zoom Out"
-        >
-          <ZoomOut size={13} />
-        </button>
-        <span className="font-semibold text-black tracking-wider w-10 text-center select-none">
-          {zoom}%
-        </span>
-        <button
-          onClick={handleZoomIn}
-          className="p-1.5 rounded-lg text-[#737373] hover:text-black hover:bg-[#f5f5f7] cursor-pointer"
-          title="Zoom In"
-        >
-          <ZoomIn size={13} />
-        </button>
-      </div>
-
-      {/* Bottom Right Workspace Help badge */}
-      <div className="absolute bottom-6 right-6 hidden md:block z-40 select-none">
-        <div className="bg-white border border-[#e5e5e7] px-3 py-2 rounded-xl text-[10px] text-[#737373] font-medium tracking-wide uppercase shadow-sm">
-          UI Shell Only • Drawing Disabled
-        </div>
+    <div className="flex-1 w-full h-full relative overflow-hidden flex flex-col bg-[#fafafa]">
+      <div className={`flex-grow w-full h-full relative ${isReadOnly ? "tldraw-readonly" : ""}`}>
+        <Tldraw 
+          onMount={handleMount}
+          autoFocus
+          options={{ maxPages: 1 }}
+        />
       </div>
     </div>
   );
 };
+
 export default CanvasWorkspace;

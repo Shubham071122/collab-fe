@@ -46,8 +46,8 @@ export const SignupForm = () => {
 
         if (res.success && res.data) {
           setUser(res.data);
-          toast.success(res.message || "Account created successfully!");
-          router.push("/dashboard");
+          toast.success(res.message || "Account created! Please verify your email.");
+          router.push("/verify-email");
         } else {
           setError(res.message || "Signup failed. Please try again.");
           toast.error(res.message || "Signup failed.");
