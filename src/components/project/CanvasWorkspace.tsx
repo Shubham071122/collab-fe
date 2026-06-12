@@ -1,5 +1,6 @@
 "use client";
 
+import "@/lib/mockLocation";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Tldraw, Editor, getSnapshot, loadSnapshot } from "@tldraw/tldraw";
 import "@tldraw/tldraw/tldraw.css";
