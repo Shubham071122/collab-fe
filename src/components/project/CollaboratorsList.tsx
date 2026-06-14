@@ -13,10 +13,12 @@ import {
 import { Button } from "@/components/common/Button";
 import { Input } from "@/components/common/Input";
 import { toast } from "sonner";
+import { BillingModal } from "../dashboard/BillingModal";
 
 interface CollaboratorsListProps {
   projectId: string;
   isOwner: boolean;
+  isLocked?: boolean;
   onCollaboratorAdded?: () => void;
 }
 
@@ -40,10 +42,12 @@ const getInitials = (name: string) =>
 export const CollaboratorsList = ({
   projectId,
   isOwner,
+  isLocked = false,
   onCollaboratorAdded,
 }: CollaboratorsListProps) => {
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const [isBillingOpen, setIsBillingOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [invitePermission, setInvitePermission] = useState<"read" | "edit">("read");
   const [inviteError, setInviteError] = useState("");
@@ -99,8 +103,23 @@ export const CollaboratorsList = ({
           setIsPopoverOpen(false);
           if (onCollaboratorAdded) onCollaboratorAdded();
         } else {
-          setInviteError(res.message || "Failed to invite collaborator.");
-          toast.error(res.message || "Failed to invite.");
+          const isLimitErr = res.message === "LIMIT_EXCEEDED" || res.message?.toLowerCase().includes("limit reached") || res.message?.toLowerCase().includes("upgrade");
+          const friendlyMessage = isLimitErr
+            ? "Collaborator limit reached. Please upgrade your plan."
+            : (res.message || "Failed to invite collaborator.");
+
+          setInviteError(friendlyMessage);
+          
+          if (isLimitErr) {
+            toast.error(friendlyMessage, {
+              action: {
+                label: "Upgrade",
+                onClick: () => setIsBillingOpen(true),
+              },
+            });
+          } else {
+            toast.error(friendlyMessage);
+          }
         }
       } catch {
         setInviteError("An error occurred during invitation.");
@@ -198,7 +217,7 @@ export const CollaboratorsList = ({
       </div>
 
       {/* Share / Invite — owner only */}
-      {isOwner && (
+      {isOwner && !isLocked && (
         <div className="relative">
           <Button
             variant="outline"
@@ -305,6 +324,7 @@ export const CollaboratorsList = ({
           )}
         </div>
       )}
+      <BillingModal isOpen={isBillingOpen} onClose={() => setIsBillingOpen(false)} />
     </div>
   );
 };

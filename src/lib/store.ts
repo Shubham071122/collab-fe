@@ -1,12 +1,14 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { User, Project } from "@/types";
+import { User, Project, UserSubscription, PlanConfig } from "@/types";
 
 interface AppState {
   user: User | null;
   projects: Project[];
   isLoading: boolean;
   syncStatus: "saved" | "saving";
+  subscription: UserSubscription | null;
+  plans: PlanConfig[];
   
   setUser: (user: User | null) => void;
   setProjects: (projects: Project[]) => void;
@@ -14,6 +16,8 @@ interface AppState {
   removeProject: (projectId: string) => void;
   clearSession: () => void;
   setSyncStatus: (status: "saved" | "saving") => void;
+  setSubscription: (sub: UserSubscription | null) => void;
+  setPlans: (plans: PlanConfig[]) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -23,6 +27,8 @@ export const useAppStore = create<AppState>()(
       projects: [],
       isLoading: false,
       syncStatus: "saved",
+      subscription: null,
+      plans: [],
 
       setUser: (user) => set({ user }),
       setProjects: (projects) => set({ projects }),
@@ -32,14 +38,18 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           projects: state.projects.filter((p) => p.id !== projectId),
         })),
-      clearSession: () => set({ user: null, projects: [] }),
+      clearSession: () => set({ user: null, projects: [], subscription: null }),
       setSyncStatus: (status) => set({ syncStatus: status }),
+      setSubscription: (subscription) => set({ subscription }),
+      setPlans: (plans) => set({ plans }),
     }),
     {
       name: "collab-app-storage",
       partialize: (state) => ({
         user: state.user,
+        subscription: state.subscription,
       }),
     }
   )
 );
+

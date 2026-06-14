@@ -21,7 +21,7 @@ export default async function ProjectPage({ params }: PageProps) {
     <div className="flex flex-col h-screen overflow-hidden bg-white text-black">
       <CanvasToolbar project={project} />
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        <CanvasWorkspace projectId={project.id} initialCanvas={project.canvas} ownerId={project.owner_id} />
+        <CanvasWorkspace project={project} />
       </main>
     </div>
   );

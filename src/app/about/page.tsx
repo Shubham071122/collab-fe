@@ -9,9 +9,6 @@ export default function AboutPage() {
       <main className="flex-grow flex flex-col items-center w-full">
         <section className="w-full bg-[#f5f5f7] pt-24 pb-20 px-6 text-center border-b border-[#e5e5e7]">
           <div className="max-w-3xl mx-auto flex flex-col items-center">
-            <span className="px-3.5 py-1 text-[10px] font-semibold tracking-widest text-[#737373] uppercase bg-white border border-black/5 rounded-full mb-6 select-none">
-              Our Philosophy
-            </span>
             <h1 className="text-4xl sm:text-6xl font-light tracking-tight text-black mb-8 leading-tight">
               Designing space for <br />
               <span className="font-semibold">shared imagination.</span>

@@ -3,6 +3,7 @@ import { Hero } from "@/components/home/Hero";
 import { Features } from "@/components/home/Features";
 import { HowItWorks } from "@/components/home/HowItWorks";
 import { CollaborationPreview } from "@/components/home/CollaborationPreview";
+import { PricingSection } from "@/components/home/PricingSection";
 import { CTASection } from "@/components/home/CTASection";
 import { Footer } from "@/components/layout/Footer";
 
@@ -15,6 +16,7 @@ export default function Home() {
         <CollaborationPreview />
         <Features />
         <HowItWorks />
+        <PricingSection />
         <CTASection />
       </main>
       <Footer />

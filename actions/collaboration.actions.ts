@@ -78,7 +78,7 @@ export async function inviteCollaboratorAction(
     if (res.ok && json.success) {
       return { success: true, message: "Project shared successfully!" };
     }
-    return { success: false, message: json.error || json.message || "Failed to invite." };
+    return { success: false, message: json.message || json.error || "Failed to invite." };
   } catch (err) {
     return { success: false, message: "Network error." };
   }

@@ -32,23 +32,21 @@ export const Footer = () => {
             <Link href="/about" className="hover:text-black transition-colors duration-200">
               About
             </Link>
-          </div>
-          {/* <div className="flex flex-col gap-2.5">
-            <span className="font-semibold text-black uppercase tracking-wider text-[10px]">
-              Company
-            </span>
-            <Link href="/about" className="hover:text-black transition-colors duration-200">
-              Why Collab
+            <Link href="/faq" className="hover:text-black transition-colors duration-200">
+              FAQ
             </Link>
-            <span className="opacity-50">Careers</span>
-          </div> */}
-          {/* <div className="flex flex-col gap-2.5">
+          </div>
+          <div className="flex flex-col gap-2.5">
             <span className="font-semibold text-black uppercase tracking-wider text-[10px]">
               Legal
             </span>
-            <span className="opacity-50">Privacy</span>
-            <span className="opacity-50">Terms</span>
-          </div> */}
+            <Link href="/privacy" className="hover:text-black transition-colors duration-200">
+              Privacy
+            </Link>
+            <Link href="/terms" className="hover:text-black transition-colors duration-200">
+              Terms
+            </Link>
+          </div>
         </div>
       </div>
 

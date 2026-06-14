@@ -52,7 +52,7 @@ export async function createProjectAction(
     if (!res.ok || !json.success) {
       return {
         success: false,
-        message: json.error || json.message || "Failed to create project.",
+        message: json.message || json.error || "Failed to create project.",
       };
     }
 
@@ -164,7 +164,7 @@ export async function updateProjectAction(
     if (!res.ok || !json.success) {
       return {
         success: false,
-        message: json.error || json.message || "Failed to update project.",
+        message: json.message || json.error || "Failed to update project.",
       };
     }
 
@@ -199,7 +199,7 @@ export async function deleteProjectAction(
     if (!res.ok || !json.success) {
       return {
         success: false,
-        message: json.error || json.message || "Failed to delete project.",
+        message: json.message || json.error || "Failed to delete project.",
       };
     }
 

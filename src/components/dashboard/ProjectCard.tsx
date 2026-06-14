@@ -12,6 +12,7 @@ interface ProjectCardProps {
   currentUserId: string;
   onDelete: (id: string) => void;
   isDeleting: boolean;
+  isAccountLocked: boolean;
 }
 
 function getInitials(name: string): string {
@@ -42,6 +43,7 @@ export const ProjectCard = ({
   currentUserId,
   onDelete,
   isDeleting,
+  isAccountLocked,
 }: ProjectCardProps) => {
   const isOwner = project.owner_id === currentUserId;
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
@@ -86,20 +88,34 @@ export const ProjectCard = ({
     <div className="bg-white border border-[#e5e5e7] p-6 rounded-2xl flex flex-col justify-between h-[190px] hover-apple group relative">
       <div>
         <div className="flex items-start justify-between gap-4">
-          <h3 className="text-base font-semibold text-black tracking-tight line-clamp-1">
-            {project.name}
-          </h3>
-          {/* Only owner sees delete button */}
-          {isOwner && (
-            <button
-              onClick={() => onDelete(project.id)}
-              disabled={isDeleting}
-              className="text-[#737373] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all duration-200 p-1 rounded hover:bg-red-50 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
-              title="Delete Project"
-            >
-              <Trash2 size={14} className="stroke-[1.5]" />
-            </button>
-          )}
+          <div className="flex items-center gap-2 min-w-0">
+            <h3 className="text-base font-semibold text-black tracking-tight line-clamp-1">
+              {project.name}
+            </h3>
+            {!isOwner && (
+              <span className="inline-flex items-center bg-gray-50 text-gray-500 border border-gray-200/50 text-[9px] font-medium px-2 py-0.5 rounded-full select-none shrink-0">
+                Shared
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {project.is_locked && (
+              <span className="inline-flex items-center bg-red-50 text-red-600 border border-red-100/50 text-[9px] font-semibold px-2 py-0.5 rounded-full select-none">
+                Read-only
+              </span>
+            )}
+            
+            {isOwner && (
+              <button
+                onClick={() => onDelete(project.id)}
+                disabled={isDeleting}
+                className="text-[#737373] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all duration-200 p-1 rounded hover:bg-red-50 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+                title="Delete Project"
+              >
+                <Trash2 size={14} className="stroke-[1.5]" />
+              </button>
+            )}
+          </div>
         </div>
         <span className="text-[10px] text-[#737373] tracking-wide capitalize mt-1 block">
           Updated {getRelativeTime(project.updated_at)}

@@ -47,9 +47,6 @@ export const HowItWorks = () => {
     <section className="w-full bg-[#f5f5f7] py-24 px-6">
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-16 lg:gap-24 items-start">
         <div className="lg:w-1/3 lg:sticky lg:top-24 flex flex-col items-start">
-          <div className="px-3 py-1 text-[10px] font-medium tracking-widest text-[#737373] uppercase bg-white border border-black/5 rounded-full mb-6 select-none">
-            Workflow
-          </div>
           <h2 className="text-3xl sm:text-4xl font-light text-black tracking-tight mb-4 text-left leading-tight">
             How it works. <br />
             <span className="font-semibold">Simple and fast.</span>

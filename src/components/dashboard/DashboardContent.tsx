@@ -11,13 +11,17 @@ import { Button } from "@/components/common/Button";
 import { Input } from "@/components/common/Input";
 import { getProjectsAction, deleteProjectAction } from "../../../actions/project.actions";
 import { getCurrentUserAction } from "../../../actions/auth.actions";
+import { getSubscriptionAction } from "../../../actions/subscription.actions";
+import { BillingModal } from "./BillingModal";
 import { toast } from "sonner";
+import { checkIsAccountLocked } from "@/lib/utils";
 
 export const DashboardContent = () => {
   const router = useRouter();
-  const { user, projects, setProjects, addProject, removeProject } = useAppStore();
+  const { user, projects, setProjects, addProject, removeProject, subscription } = useAppStore();
   const [mounted, setMounted] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBillingOpen, setIsBillingOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<{ id: string; name: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [greeting, setGreeting] = useState("Hello");
@@ -41,6 +45,14 @@ export const DashboardContent = () => {
         router.push("/login");
       } else {
         useAppStore.getState().setUser(activeUser);
+        try {
+          const subRes = await getSubscriptionAction();
+          if (subRes.success && subRes.data) {
+            useAppStore.getState().setSubscription(subRes.data);
+          }
+        } catch (err) {
+          console.error("Failed to load active subscription:", err);
+        }
       }
     };
 
@@ -129,8 +141,34 @@ export const DashboardContent = () => {
     );
   }
 
+  const activeTier = subscription?.tier || "free";
+  const maxProjects = activeTier === "gold" ? -1 : activeTier === "silver" ? 5 : 2;
+  const ownedProjects = projects.filter((p) => p.owner_id === user?.id).length;
+  const isLocked = checkIsAccountLocked(subscription, projects, user?.id);
+
   return (
     <div className="max-w-7xl mx-auto px-6 py-12 w-full animate-fade-in flex flex-col gap-10">
+      {isLocked && (
+        <div className="w-full bg-[#fdf2f2] border border-[#fbd5d5] text-[#9b1c1c] px-6 py-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in select-none">
+          <div className="flex flex-col gap-1">
+            <span className="text-sm font-semibold tracking-tight">
+              Account in read-only mode
+            </span>
+            <span className="text-xs text-[#c81e1e]/90 font-medium">
+              To unlock edit access, please pay the due or upgrade your subscription. You own {ownedProjects} projects, which exceeds your tier limit of {maxProjects}.
+            </span>
+          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setIsBillingOpen(true)}
+            className="bg-[#c81e1e] hover:bg-[#b81818] text-white border-transparent shrink-0 self-start sm:self-center text-xs h-9 py-0 px-4 font-semibold rounded-xl"
+          >
+            Upgrade Plan
+          </Button>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-[#e5e5e7] pb-8">
         <div>
           <h1 className="text-3xl font-light text-black tracking-tight leading-none mb-2">
@@ -140,10 +178,17 @@ export const DashboardContent = () => {
             Welcome back to your workspace. Start a new canvas or manage existing projects.
           </p>
         </div>
-        
+
         <Button
           variant="primary"
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            if (maxProjects !== -1 && ownedProjects >= maxProjects) {
+              toast.error("Project limit reached. Please upgrade your plan to create more projects.");
+              setIsBillingOpen(true);
+            } else {
+              setIsModalOpen(true);
+            }
+          }}
           className="flex items-center gap-2 shrink-0 self-start md:self-center"
         >
           <Plus size={16} />
@@ -163,8 +208,31 @@ export const DashboardContent = () => {
           />
         </div>
 
-        <div className="text-xs text-[#737373] font-medium tracking-wide capitalize">
-          {projects.length} {projects.length === 1 ? "project" : "projects"} total
+        <div className="flex items-center gap-3">
+          <div className="text-xs text-[#737373] font-medium tracking-wide flex items-center gap-2">
+            <span>
+              {maxProjects === -1 ? (
+                <>Plan: <strong className="text-amber-600 capitalize">{activeTier}</strong> (Unlimited projects)</>
+              ) : (
+                <>Plan: <strong className="text-blue-600 capitalize font-semibold">{activeTier}</strong> (<strong>{ownedProjects}</strong> / {maxProjects} owned projects)</>
+              )}
+            </span>
+            {maxProjects !== -1 && ownedProjects >= maxProjects && (
+              <span className="bg-red-50 text-red-600 border border-red-100/50 text-[10px] font-medium px-2 py-0.5 rounded-full">
+                Limit reached
+              </span>
+            )}
+          </div>
+          {maxProjects !== -1 && ownedProjects >= maxProjects && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsBillingOpen(true)}
+              className="h-7 text-[10px] px-2.5 py-0 flex items-center"
+            >
+              Upgrade
+            </Button>
+          )}
         </div>
       </div>
 
@@ -217,6 +285,7 @@ export const DashboardContent = () => {
               currentUserId={user.id}
               onDelete={handleDeleteTrigger}
               isDeleting={isDeletingId === proj.id}
+              isAccountLocked={isLocked}
             />
           ))}
         </div>
@@ -237,6 +306,11 @@ export const DashboardContent = () => {
         onConfirm={confirmDelete}
         projectName={projectToDelete?.name}
         isPending={isDeletingId !== null}
+      />
+
+      <BillingModal
+        isOpen={isBillingOpen}
+        onClose={() => setIsBillingOpen(false)}
       />
     </div>
   );

@@ -8,6 +8,7 @@ import { CollaboratorsList } from "./CollaboratorsList";
 import { updateProjectAction } from "../../../actions/project.actions";
 import { useAppStore } from "@/lib/store";
 import { toast } from "sonner";
+import { checkIsAccountLocked } from "@/lib/utils";
 
 interface CanvasToolbarProps {
   project: Project;
@@ -17,6 +18,7 @@ interface CanvasToolbarProps {
 export const CanvasToolbar = ({ project, onRenameSuccess }: CanvasToolbarProps) => {
   const { user, syncStatus } = useAppStore();
   const isOwner = !!user && project.owner_id === user.id;
+  const isProjectLocked = project.is_locked;
 
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(project.name);
@@ -88,9 +90,15 @@ export const CanvasToolbar = ({ project, onRenameSuccess }: CanvasToolbarProps) 
             />
           ) : (
             <h1
-              onClick={() => setIsEditing(true)}
-              className="text-sm font-semibold text-black truncate cursor-pointer hover:bg-[#f5f5f7] px-2 py-1 rounded-md transition-colors max-w-[200px] sm:max-w-[300px]"
-              title="Click to rename"
+              onClick={() => {
+                if (!isProjectLocked) {
+                  setIsEditing(true);
+                }
+              }}
+              className={`text-sm font-semibold text-black truncate px-2 py-1 rounded-md transition-colors max-w-[200px] sm:max-w-[300px] ${
+                isProjectLocked ? "cursor-default" : "cursor-pointer hover:bg-[#f5f5f7]"
+              }`}
+              title={isProjectLocked ? undefined : "Click to rename"}
             >
               {title}
             </h1>
@@ -116,7 +124,7 @@ export const CanvasToolbar = ({ project, onRenameSuccess }: CanvasToolbarProps) 
 
       {/* Right Area - Collaborators Stack */}
       <div className="shrink-0 flex items-center">
-        <CollaboratorsList projectId={project.id} isOwner={isOwner} />
+        <CollaboratorsList projectId={project.id} isOwner={isOwner} isLocked={isProjectLocked} />
       </div>
     </div>
   );

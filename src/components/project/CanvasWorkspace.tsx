@@ -11,45 +11,55 @@ import { getProjectMembersAction } from "../../../actions/collaboration.actions"
 import { useAppStore } from "@/lib/store";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { getSubscriptionAction } from "../../../actions/subscription.actions";
+import { getProjectsAction } from "../../../actions/project.actions";
+import { checkIsAccountLocked } from "@/lib/utils";
+import { BillingModal } from "../dashboard/BillingModal";
+import { Project } from "@/types";
 
 const CURSOR_COLORS = [
-  "#FF6B6B", // coral
-  "#4D96FF", // soft blue
-  "#6BCB77", // pastel green
-  "#FFD93D", // soft yellow
-  "#B983FF", // lavender
-  "#FF8AAE", // pink
-  "#6EC72D", // bright green
-  "#FFA45B", // pastel orange
-  "#00ADB5", // teal
-  "#FF2E93", // dark pink
+	"#FF6B6B", // coral
+	"#4D96FF", // soft blue
+	"#6BCB77", // pastel green
+	"#FFD93D", // soft yellow
+	"#B983FF", // lavender
+	"#FF8AAE", // pink
+	"#6EC72D", // bright green
+	"#FFA45B", // pastel orange
+	"#00ADB5", // teal
+	"#FF2E93", // dark pink
 ];
 
 function getUserCursorColor(userId: string) {
-  let hash = 0;
-  for (let i = 0; i < userId.length; i++) {
-    hash = userId.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const index = Math.abs(hash) % CURSOR_COLORS.length;
-  return CURSOR_COLORS[index];
+	let hash = 0;
+	for (let i = 0; i < userId.length; i++) {
+		hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+	}
+	const index = Math.abs(hash) % CURSOR_COLORS.length;
+	return CURSOR_COLORS[index];
 }
 
 interface CanvasWorkspaceProps {
-  projectId: string;
-  initialCanvas: string;
-  ownerId: string;
+	project: Project;
 }
 
-export const CanvasWorkspace = ({ projectId, initialCanvas, ownerId }: CanvasWorkspaceProps) => {
-  const router = useRouter();
-  const { isConnected, lastMessage, sendMessage } = useWebSocket(projectId);
-  const { user } = useAppStore();
-  const [editor, setEditor] = useState<Editor | null>(null);
-  const isOwner = !!user && user.id === ownerId;
-  const [isReadOnly, setIsReadOnly] = useState(!isOwner);
-  const [checkingPermissions, setCheckingPermissions] = useState(!isOwner);
+export const CanvasWorkspace = ({ project }: CanvasWorkspaceProps) => {
+	const projectId = project.id;
+	const initialCanvas = project.canvas;
+	const ownerId = project.owner_id;
 
-  const localStorageDebounceRef = useRef<NodeJS.Timeout | null>(null);
+	const router = useRouter();
+	const { isConnected, lastMessage, sendMessage } = useWebSocket(projectId);
+	const { user, projects, subscription } = useAppStore();
+	const [editor, setEditor] = useState<Editor | null>(null);
+	const isOwner = !!user && user.id === ownerId;
+
+	const [isBillingOpen, setIsBillingOpen] = useState(false);
+
+	const [isReadOnly, setIsReadOnly] = useState(true);
+	const [checkingPermissions, setCheckingPermissions] = useState(true);
+
+	const localStorageDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Intercept and silence tldraw license console logs in production/development
@@ -101,15 +111,50 @@ export const CanvasWorkspace = ({ projectId, initialCanvas, ownerId }: CanvasWor
     }
   }, [isConnected, sendMessage]);
 
+  // Sync user subscription & project list on load
   useEffect(() => {
-    if (isOwner) {
-      setIsReadOnly(false);
-      setCheckingPermissions(false);
-      return;
-    }
-
-    const checkPermissions = async () => {
+    const syncWorkspaceData = async () => {
       if (!user) return;
+      try {
+        if (!subscription) {
+          const subRes = await getSubscriptionAction();
+          if (subRes.success && subRes.data) {
+            useAppStore.getState().setSubscription(subRes.data);
+          }
+        }
+        if (projects.length === 0) {
+          const projRes = await getProjectsAction();
+          if (projRes.success && projRes.data) {
+            useAppStore.getState().setProjects(projRes.data);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to sync workspace data:", err);
+      }
+    };
+    syncWorkspaceData();
+  }, [user, projects.length, subscription]);
+
+  // Determine read-only mode based on ownership, lock status, and collaborator permissions
+  useEffect(() => {
+    const evalPermissions = async () => {
+      if (!user) return;
+
+      // 1. If project is locked due to owner's plan limits, force read-only for everyone
+      if (project.is_locked) {
+        setIsReadOnly(true);
+        setCheckingPermissions(false);
+        return;
+      }
+
+      // 2. If owner (and not locked): allow editing
+      if (isOwner) {
+        setIsReadOnly(false);
+        setCheckingPermissions(false);
+        return;
+      }
+
+      // 3. If collaborator: fetch member permissions from backend
       try {
         const res = await getProjectMembersAction(projectId);
         if (res.success && res.data) {
@@ -121,6 +166,8 @@ export const CanvasWorkspace = ({ projectId, initialCanvas, ownerId }: CanvasWor
           } else {
             setIsReadOnly(true);
           }
+        } else {
+          setIsReadOnly(true);
         }
       } catch (err) {
         console.error("Failed to check project permissions:", err);
@@ -130,8 +177,8 @@ export const CanvasWorkspace = ({ projectId, initialCanvas, ownerId }: CanvasWor
       }
     };
 
-    checkPermissions();
-  }, [projectId, user, isOwner]);
+    evalPermissions();
+  }, [projectId, project.is_locked, user, isOwner]);
 
   useEffect(() => {
     if (editor) {
@@ -393,6 +440,31 @@ export const CanvasWorkspace = ({ projectId, initialCanvas, ownerId }: CanvasWor
 
   return (
     <div className="flex-1 w-full h-full relative overflow-hidden flex flex-col bg-[#fafafa]">
+      {project.is_locked && (
+        <div className={`w-full border-b px-4 py-2.5 flex items-center justify-between gap-3 text-xs z-50 animate-fade-in select-none ${
+          isOwner 
+            ? "bg-[#fdf2f2] border-[#fbd5d5] text-[#9b1c1c]" 
+            : "bg-[#fefaf0] border-[#fde8c3] text-[#b25e00]"
+        }`}>
+          <div className="flex items-center gap-2">
+            <span className="font-semibold">Read-only mode:</span>
+            <span>
+              {isOwner 
+                ? "Your account exceeds the project limit. Upgrade your plan to restore edit and share access." 
+                : "This project is in read-only mode because the owner's plan limit has been exceeded. Please ask the owner to upgrade."
+              }
+            </span>
+          </div>
+          {isOwner && (
+            <button
+              onClick={() => setIsBillingOpen(true)}
+              className="text-[#e02424] hover:text-[#c81e1e] font-semibold underline underline-offset-2 hover:no-underline transition-colors shrink-0 cursor-pointer"
+            >
+              Upgrade Plan
+            </button>
+          )}
+        </div>
+      )}
       <div className={`flex-grow w-full h-full relative ${isReadOnly ? "tldraw-readonly" : ""}`}>
         <Tldraw 
           onMount={handleMount}
@@ -401,6 +473,11 @@ export const CanvasWorkspace = ({ projectId, initialCanvas, ownerId }: CanvasWor
           licenseKey="tldraw-perpetual/WyJteS1kdW1teS1saWNlbnNlLWlkIixbIioiXSwyLCIyMDk5LTEyLTMxVDIzOjU5OjU5Ljk5OVoiXQ==.AAAA"
         />
       </div>
+
+      <BillingModal
+        isOpen={isBillingOpen}
+        onClose={() => setIsBillingOpen(false)}
+      />
     </div>
   );
 };
