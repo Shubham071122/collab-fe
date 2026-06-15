@@ -2,11 +2,18 @@
 
 import Link from "next/link";
 import { Button } from "@/components/common/Button";
+import { CollaborationPreview } from "./CollaborationPreview";
 
 export const Hero = () => {
   return (
-    <section className="relative w-full bg-white pt-24 pb-16 px-6 overflow-hidden flex flex-col items-center text-center">
-      <div className="absolute inset-0 bg-[radial-gradient(#e5e5e7_1px,transparent_1px)] [background-size:24px_24px] opacity-40 pointer-events-none" />
+    <section className="relative w-full bg-white pt-24 pb-20 px-6 overflow-hidden flex flex-col items-center text-center">
+      <div 
+        className="absolute inset-0 bg-[radial-gradient(#e5e5e7_1px,transparent_1px)] [background-size:24px_24px] opacity-55 pointer-events-none"
+        style={{
+          maskImage: "radial-gradient(ellipse at center, black 30%, transparent 75%)",
+          WebkitMaskImage: "radial-gradient(ellipse at center, black 30%, transparent 75%)"
+        }}
+      />
 
       <h1 className="animate-fade-up relative z-10 max-w-4xl text-5xl sm:text-7xl font-light text-black tracking-tight leading-[1.08] mb-8 font-sans">
         Collaborate visually. <br />
@@ -31,7 +38,9 @@ export const Hero = () => {
         </Link>
       </div>
 
-      <div className="w-full max-w-5xl h-[1px] bg-gradient-to-r from-transparent via-[#e5e5e7] to-transparent mt-24" />
+      <div className="w-full max-w-5xl mt-16 relative z-10 animate-fade-up delay-300">
+        <CollaborationPreview />
+      </div>
     </section>
   );
 };

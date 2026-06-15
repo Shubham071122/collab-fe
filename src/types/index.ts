@@ -59,3 +59,15 @@ export interface PlanConfig {
   description: string;
 }
 
+export interface SubscriptionTransaction {
+  id: string;
+  user_id: string;
+  subscription_id: string;
+  payment_id?: string;
+  amount: number;
+  status: string;
+  billing_reason?: string;
+  created_at: string;
+}
+
+

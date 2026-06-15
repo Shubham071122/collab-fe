@@ -33,7 +33,7 @@ export const PricingSection = () => {
     {
       id: "silver",
       name: "Silver",
-      price: "100",
+      price: "5",
       description: "Scale up with up to 5 projects and share with 5 collaborators.",
       features: [
         "Up to 5 projects",
@@ -46,7 +46,7 @@ export const PricingSection = () => {
     {
       id: "gold",
       name: "Gold",
-      price: "200",
+      price: "10",
       description: "Unlock full capability with unlimited projects and collaborators.",
       features: [
         "Unlimited projects",

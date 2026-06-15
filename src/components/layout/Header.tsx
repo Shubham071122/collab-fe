@@ -14,7 +14,6 @@ export const Header = () => {
   const pathname = usePathname();
   const { user, clearSession, subscription } = useAppStore();
   const [mounted, setMounted] = useState(false);
-  const [isBillingOpen, setIsBillingOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -117,15 +116,13 @@ export const Header = () => {
                         </span>
                       </div>
                       
-                      <button
-                        onClick={() => {
-                          setIsDropdownOpen(false);
-                          setIsBillingOpen(true);
-                        }}
+                      <Link
+                        href="/dashboard/billing"
+                        onClick={() => setIsDropdownOpen(false)}
                         className="w-full text-center py-2 px-3 border border-[#e5e5e7] hover:border-black/20 rounded-xl text-xs font-semibold text-black transition-all hover:bg-[#f5f5f7] flex items-center justify-center cursor-pointer select-none"
                       >
                         Plans & Billing
-                      </button>
+                      </Link>
                     </div>
                     
                     {/* Divider */}
@@ -158,7 +155,6 @@ export const Header = () => {
           )}
         </div>
       </div>
-      <BillingModal isOpen={isBillingOpen} onClose={() => setIsBillingOpen(false)} />
     </header>
   );
 };

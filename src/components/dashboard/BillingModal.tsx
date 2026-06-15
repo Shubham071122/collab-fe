@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useTransition } from "react";
 import { X, Check, Loader2 } from "lucide-react";
 import { useAppStore } from "@/lib/store";
-import { getPlansAction, getSubscriptionAction, updateSubscriptionAction } from "../../../actions/subscription.actions";
+import { getPlansAction, getSubscriptionAction, createCheckoutAction, verifySubscriptionAction, cancelSubscriptionCheckoutAction } from "../../../actions/subscription.actions";
 import { Button } from "@/components/common/Button";
 import { toast } from "sonner";
 import { PlanConfig } from "@/types";
@@ -13,8 +13,22 @@ interface BillingModalProps {
   onClose: () => void;
 }
 
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    if (typeof window !== "undefined" && (window as any).Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
+
 export const BillingModal = ({ isOpen, onClose }: BillingModalProps) => {
-  const { subscription, setSubscription, plans, setPlans } = useAppStore();
+  const { user, subscription, setSubscription, plans, setPlans } = useAppStore();
   const [localPlans, setLocalPlans] = useState<PlanConfig[]>(plans);
   const [isLoading, setIsLoading] = useState(false);
   const [checkoutTier, setCheckoutTier] = useState<string | null>(null);
@@ -60,21 +74,89 @@ export const BillingModal = ({ isOpen, onClose }: BillingModalProps) => {
 
     startTransition(async () => {
       try {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        const res = await updateSubscriptionAction(tier);
-        if (res.success && res.data) {
-          setSubscription(res.data);
-          toast.success(`Plan updated to ${tier} successfully!`);
+        const isScriptLoaded = await loadRazorpayScript();
+        if (!isScriptLoaded) {
+          toast.error("Failed to load payment gateway. Please check your internet connection.");
           setCheckoutTier(null);
-          setTimeout(() => {
-            onClose();
-          }, 400);
-        } else {
-          toast.error(res.message || "Failed to update plan.");
-          setCheckoutTier(null);
+          return;
         }
+
+        const res = await createCheckoutAction(tier);
+        if (!res.success || !res.data) {
+          toast.error(res.message || "Failed to initiate checkout.");
+          setCheckoutTier(null);
+          return;
+        }
+
+        const { subscription_id } = res.data;
+
+        const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "";
+        if (!keyId) {
+          toast.error("Razorpay Key ID is not configured on the frontend.");
+          setCheckoutTier(null);
+          return;
+        }
+
+        const options = {
+          key: keyId,
+          subscription_id: subscription_id,
+          name: "Collab Whiteboard",
+          description: `Subscribe to ${tier.charAt(0).toUpperCase() + tier.slice(1)} Plan`,
+          image: typeof window !== "undefined" ? window.location.origin + "/apple-touch-icon.png" : "",
+          handler: async function (response: any) {
+            const { razorpay_payment_id, razorpay_subscription_id, razorpay_signature } = response;
+            
+            toast.loading("Verifying payment...", { id: "verify-toast" });
+            
+            try {
+              const verifyRes = await verifySubscriptionAction(
+                razorpay_subscription_id,
+                razorpay_payment_id,
+                razorpay_signature
+              );
+              
+              if (verifyRes.success) {
+                toast.success(`Subscribed to ${tier} successfully!`, { id: "verify-toast" });
+                
+                const subRes = await getSubscriptionAction();
+                if (subRes.success && subRes.data) {
+                  setSubscription(subRes.data);
+                }
+                
+                setCheckoutTier(null);
+                setTimeout(() => {
+                  onClose();
+                }, 400);
+              } else {
+                toast.error(verifyRes.message || "Payment verification failed.", { id: "verify-toast" });
+                setCheckoutTier(null);
+              }
+            } catch (err) {
+              toast.error("Verification failed due to a network error.", { id: "verify-toast" });
+              setCheckoutTier(null);
+            }
+          },
+          prefill: {
+            name: user?.name || "",
+            email: user?.email || "",
+          },
+          theme: {
+            color: "#000000",
+          },
+          modal: {
+            ondismiss: function () {
+              toast.info("Payment cancelled.");
+              setCheckoutTier(null);
+              cancelSubscriptionCheckoutAction(subscription_id);
+            }
+          }
+        };
+
+        const rzp = new (window as any).Razorpay(options);
+        rzp.open();
+
       } catch (err) {
-        toast.error("An unexpected error occurred.");
+        toast.error("An unexpected error occurred during checkout initialization.");
         setCheckoutTier(null);
       }
     });

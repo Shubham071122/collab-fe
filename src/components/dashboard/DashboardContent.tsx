@@ -21,7 +21,6 @@ export const DashboardContent = () => {
   const { user, projects, setProjects, addProject, removeProject, subscription } = useAppStore();
   const [mounted, setMounted] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isBillingOpen, setIsBillingOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<{ id: string; name: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [greeting, setGreeting] = useState("Hello");
@@ -161,7 +160,7 @@ export const DashboardContent = () => {
           <Button
             variant="primary"
             size="sm"
-            onClick={() => setIsBillingOpen(true)}
+            onClick={() => router.push("/dashboard/billing")}
             className="bg-[#c81e1e] hover:bg-[#b81818] text-white border-transparent shrink-0 self-start sm:self-center text-xs h-9 py-0 px-4 font-semibold rounded-xl"
           >
             Upgrade Plan
@@ -184,7 +183,7 @@ export const DashboardContent = () => {
           onClick={() => {
             if (maxProjects !== -1 && ownedProjects >= maxProjects) {
               toast.error("Project limit reached. Please upgrade your plan to create more projects.");
-              setIsBillingOpen(true);
+              router.push("/dashboard/billing");
             } else {
               setIsModalOpen(true);
             }
@@ -227,7 +226,7 @@ export const DashboardContent = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setIsBillingOpen(true)}
+              onClick={() => router.push("/dashboard/billing")}
               className="h-7 text-[10px] px-2.5 py-0 flex items-center"
             >
               Upgrade
@@ -308,10 +307,7 @@ export const DashboardContent = () => {
         isPending={isDeletingId !== null}
       />
 
-      <BillingModal
-        isOpen={isBillingOpen}
-        onClose={() => setIsBillingOpen(false)}
-      />
+
     </div>
   );
 };

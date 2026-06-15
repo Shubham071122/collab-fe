@@ -46,7 +46,7 @@ export const CollaborationPreview = () => {
   }, []);
 
   return (
-    <section className="w-full bg-white py-24 px-6 max-w-7xl mx-auto flex flex-col items-center">
+    <>
       <style>{`
         @keyframes preview-dash {
           to {
@@ -57,16 +57,6 @@ export const CollaborationPreview = () => {
           animation: preview-dash 2s linear infinite;
         }
       `}</style>
-
-      {/* Title */}
-      <div className="max-w-2xl text-center mb-16">
-        <h2 className="text-3xl sm:text-4xl font-light text-black tracking-tight mb-4">
-          Experience <span className="font-semibold">visual fluidity.</span>
-        </h2>
-        <p className="text-sm text-[#737373] font-light leading-relaxed">
-          Watch your workspace come to life. Teams from Apple, Stripe, and Airbnb align ideas inside real-time interactive canvases.
-        </p>
-      </div>
 
       {/* Simulated Board Frame */}
       <div className="w-full max-w-5xl h-[420px] bg-[#fafafa] border border-[#e5e5e7] rounded-3xl relative overflow-hidden shadow-[0_24px_60px_-15px_rgba(0,0,0,0.03)] group select-none">
@@ -204,7 +194,7 @@ export const CollaborationPreview = () => {
           </div>
         ))}
       </div>
-    </section>
+    </>
   );
 };
 
