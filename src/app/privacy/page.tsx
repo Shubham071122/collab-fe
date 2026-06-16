@@ -61,6 +61,14 @@ export default function PrivacyPage() {
 							</p>
 						</div>
 
+						<div>
+							<h2 className="text-lg font-semibold text-black mb-3">5. Questions & Feedback</h2>
+							<p className="text-neutral-700 text-xs sm:text-sm">
+								If you have any questions or feedback regarding this Privacy Policy, please reach out to us via the in-app support portal in your dashboard, start a discussion in our community forum, or wave frantically in our general direction.
+							</p>
+						</div>
+
+
 					</div>
 				</section>
 			</main>
