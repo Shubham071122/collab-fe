@@ -101,20 +101,15 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom premium scrollbar */
+/* Ghost scrollbar — scrolling works but no visible scrollbar is drawn */
+.custom-scrollbar {
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* IE/Edge */
+}
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #e5e5e7;
-  border-radius: 999px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #d1d1d6;
+  display: none;                /* Chrome, Safari, Opera */
+  width: 0;
+  height: 0;
 }
 
 /* Glassmorphism surfaces */
@@ -178,5 +173,132 @@ body.tldraw-readonly-active [data-testid="quick-actions"] {
   pointer-events: none !important;
   visibility: hidden !important;
 }
+
+/* Custom theme overrides for Tldraw UI Chrome */
+.tl-theme__light,
+.tldraw__editor,
+.tl-container {
+  --tl-color-selection-stroke: #18181b !important;
+  --tl-color-selection-fill: rgba(24, 24, 27, 0.08) !important;
+  --tl-color-selected: #18181b !important;
+  --tl-color-selected-contrast: #ffffff !important;
+  --tl-color-primary: #18181b !important;
+  --tl-font-sans: var(--font-sans) !important;
+}
+
+/* Custom premium overrides for tldraw UI elements */
+.tlui-toolbar,
+.tlui-style-panel,
+.tlui-navigation-panel,
+.tlui-menu-zone,
+.tlui-help-menu,
+.tlui-zoom-menu,
+.tlui-quick-actions,
+.tlui-actions-menu {
+  background: rgba(255, 255, 255, 0.82) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+  overflow: hidden !important;
+}
+
+/* Ensure child wrappers don't force ugly backgrounds */
+.tlui-toolbar__inner,
+.tlui-style-panel__inner,
+.tlui-navigation-panel__inner {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Style active button states to look premium (charcoal black fill, white content) */
+.tlui-button[data-state="selected"],
+.tlui-button[data-selected="true"],
+.tlui-button[data-active="true"] {
+  background-color: #18181b !important;
+  color: #ffffff !important;
+  border-radius: 8px !important;
+}
+
+/* Custom button hover micro-interactions */
+.tlui-button {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  border-radius: 8px !important;
+}
+.tlui-button:hover {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+  transform: scale(1.03);
+}
+.tlui-button:active {
+  transform: scale(0.97);
+}
+
+/* Custom dropdown and popover menus */
+.tlui-popover,
+.tlui-dropdown-menu,
+.tlui-context-menu {
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 12px 36px -12px rgba(0, 0, 0, 0.12), 0 2px 8px -2px rgba(0, 0, 0, 0.04) !important;
+  padding: 6px !important;
+}
+
+/* Style list items inside drop downs */
+.tlui-popover .tlui-button,
+.tlui-dropdown-menu .tlui-button {
+  border-radius: 8px !important;
+  padding: 6px 10px !important;
+}
+
+/* Hide standard scrollbars in style panel and popovers */
+.tlui-style-panel,
+.tlui-popover {
+  scrollbar-width: none;
+}
+.tlui-style-panel::-webkit-scrollbar,
+.tlui-popover::-webkit-scrollbar {
+  display: none;
+}
+
+/* Make color swatches/palette selections render beautifully */
+.tlui-style-panel [style*="background-color"] {
+  border-radius: 8px !important;
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.tlui-style-panel [style*="background-color"]:hover {
+  transform: scale(1.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Make slider tracks and thumb controls blend premium */
+.tlui-slider__track {
+  background-color: rgba(0, 0, 0, 0.06) !important;
+  height: 4px !important;
+  border-radius: 2px !important;
+}
+.tlui-slider__thumb {
+  background-color: #18181b !important;
+  border: 2px solid #ffffff !important;
+  width: 14px !important;
+  height: 14px !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Custom premium typography details within style labels */
+.tlui-style-panel__section__header {
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  color: #71717a !important;
+  margin-bottom: 6px !important;
+  font-family: var(--font-sans) !important;
+}
+
+
 
 
