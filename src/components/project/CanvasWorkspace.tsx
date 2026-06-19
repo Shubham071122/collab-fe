@@ -120,6 +120,25 @@ export const CanvasWorkspace = ({ project }: CanvasWorkspaceProps) => {
 
 	const [isReadOnly, setIsReadOnly] = useState(true);
 	const [checkingPermissions, setCheckingPermissions] = useState(true);
+	const [peerCursors, setPeerCursors] = useState<Record<string, { x: number; y: number; userName: string; color: string; lastUpdate: number }>>({});
+
+	useEffect(() => {
+		const interval = setInterval(() => {
+			const now = Date.now();
+			setPeerCursors((prev) => {
+				const next = { ...prev };
+				let changed = false;
+				for (const [key, value] of Object.entries(next)) {
+					if (now - value.lastUpdate > 3000) {
+						delete next[key];
+						changed = true;
+					}
+				}
+				return changed ? next : prev;
+			});
+		}, 1000);
+		return () => clearInterval(interval);
+	}, []);
 
 	const localStorageDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -519,11 +538,52 @@ export const CanvasWorkspace = ({ project }: CanvasWorkspaceProps) => {
     };
   }, [editor, isReadOnly, saveToLocalStorageDebounced, sendMessage]);
 
+  // Send local pointer position to collaborators
+  useEffect(() => {
+    if (!editor || !user) return;
+
+    let lastSent = 0;
+    const throttleMs = 50; // Send updates at most every 50ms
+
+    const handleEvent = (info: any) => {
+      if (info.type === "pointer" && info.name === "pointer_move") {
+        const now = Date.now();
+        if (now - lastSent > throttleMs) {
+          const pagePoint = editor.inputs.getCurrentPagePoint();
+          sendMessage("peer_cursor", {
+            x: pagePoint.x,
+            y: pagePoint.y,
+            userName: user.name || "Collaborator",
+            color: getUserCursorColor(user.id || "default"),
+          });
+          lastSent = now;
+        }
+      }
+    };
+
+    editor.on("event", handleEvent);
+
+    return () => {
+      editor.off("event", handleEvent);
+    };
+  }, [editor, user, sendMessage]);
+
   useEffect(() => {
     if (!editor || !lastMessage || !user) return;
 
     if (lastMessage.userId !== user.id) {
-      if (lastMessage.type === "canvas_change" || lastMessage.type === "presence_change") {
+      if (lastMessage.type === "peer_cursor") {
+        setPeerCursors((prev) => ({
+          ...prev,
+          [lastMessage.userId]: {
+            x: lastMessage.payload.x,
+            y: lastMessage.payload.y,
+            userName: lastMessage.payload.userName,
+            color: lastMessage.payload.color,
+            lastUpdate: Date.now(),
+          },
+        }));
+      } else if (lastMessage.type === "canvas_change" || lastMessage.type === "presence_change") {
         // console.log("WebSocket received remote change:", lastMessage.type, lastMessage.payload);
         const { added, updated, removed } = lastMessage.payload;
 
@@ -624,7 +684,7 @@ export const CanvasWorkspace = ({ project }: CanvasWorkspaceProps) => {
           licenseKey="tldraw-perpetual/WyJteS1kdW1teS1saWNlbnNlLWlkIixbIioiXSwyLCIyMDk5LTEyLTMxVDIzOjU5OjU5Ljk5OVoiXQ==.AAAA"
           hideUi={true}
         >
-          <CustomCanvasUI isReadOnly={isReadOnly} projectName={project.name} />
+          <CustomCanvasUI isReadOnly={isReadOnly} projectName={project.name} peerCursors={peerCursors} />
         </Tldraw>
       </div>
 
@@ -654,6 +714,7 @@ const CUSTOM_COLORS = [
 interface CustomCanvasUIProps {
   isReadOnly: boolean;
   projectName: string;
+  peerCursors: Record<string, { x: number; y: number; userName: string; color: string; lastUpdate: number }>;
 }
 
 const GEOMETRIC_SHAPES = [
@@ -725,7 +786,102 @@ const GEOMETRIC_SHAPES = [
   ) }
 ];
 
-const CustomCanvasUI = ({ isReadOnly, projectName }: CustomCanvasUIProps) => {
+const capitalizeName = (name: string) => {
+  if (!name) return "";
+  return name
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+};
+
+interface CollaboratorCursorsProps {
+  peerCursors: Record<string, { x: number; y: number; userName: string; color: string; lastUpdate: number }>;
+}
+
+const CollaboratorCursors = ({ peerCursors }: CollaboratorCursorsProps) => {
+  const editor = useEditor();
+  const camera = useValue("camera", () => editor.getCamera(), [editor]);
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        pointerEvents: "none",
+        overflow: "hidden",
+        zIndex: 100,
+      }}
+    >
+      {Object.entries(peerCursors).map(([peerId, collaborator]) => {
+        const screenX = camera.x + collaborator.x * camera.z;
+        const screenY = camera.y + collaborator.y * camera.z;
+
+        return (
+          <div
+            key={peerId}
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              transform: `translate(${screenX}px, ${screenY}px)`,
+              transformOrigin: "0 0",
+              pointerEvents: "none",
+            }}
+          >
+            <svg
+              width="26"
+              height="26"
+              viewBox="0 0 26 26"
+              fill="none"
+              style={{
+                color: collaborator.color || "#000000",
+                transform: "translate(-5px, -2.5px)",
+                filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.25))",
+              }}
+            >
+              <path
+                d="M5 2.5v17.6l4.8-4.8 3.5 8.1 3.2-1.4-3.5-8.1h6.6L5 2.5z"
+                fill="currentColor"
+                stroke="white"
+                strokeWidth="2"
+                strokeLinejoin="miter"
+              />
+            </svg>
+            {collaborator.userName && (
+              <div
+                style={{
+                  position: "absolute",
+                  left: 12,
+                  top: 15,
+                  backgroundColor: collaborator.color || "#000000",
+                  color: "white",
+                  padding: "4px 8px",
+                  borderRadius: "2px 8px 8px 8px",
+                  border: "1px solid rgba(255, 255, 255, 0.25)",
+                  fontSize: "11px",
+                  fontWeight: 500,
+                  letterSpacing: "-0.01em",
+                  whiteSpace: "nowrap",
+                  boxShadow: "0 4px 6px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.1)",
+                  textShadow: "0 1px 1px rgba(0, 0, 0, 0.15)",
+                  pointerEvents: "none",
+                  fontFamily: "Inter, sans-serif",
+                }}
+              >
+                {capitalizeName(collaborator.userName)}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const CustomCanvasUI = ({ isReadOnly, projectName, peerCursors }: CustomCanvasUIProps) => {
   const editor = useEditor();
   const clipboard = useMenuClipboardEvents();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1130,6 +1286,9 @@ const CustomCanvasUI = ({ isReadOnly, projectName }: CustomCanvasUIProps) => {
 
   return (
     <div className="absolute inset-0 pointer-events-none z-[200] font-sans select-none">
+      {/* Collaborator Cursors Overlay */}
+      <CollaboratorCursors peerCursors={peerCursors} />
+
       {/* HAMBURGER BUTTON — standalone top-left, explicit w-10 so left-full = 40px (not panel width) */}
       <div className="absolute top-4 left-4 pointer-events-auto">
         <div className="relative w-10">
