@@ -14,6 +14,7 @@ import { Button } from "@/components/common/Button";
 import { Input } from "@/components/common/Input";
 import { toast } from "sonner";
 import { BillingModal } from "../dashboard/BillingModal";
+import { useAppStore } from "@/lib/store";
 
 interface CollaboratorsListProps {
   projectId: string;
@@ -45,6 +46,7 @@ export const CollaboratorsList = ({
   isLocked = false,
   onCollaboratorAdded,
 }: CollaboratorsListProps) => {
+  const { isDarkMode } = useAppStore();
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [isBillingOpen, setIsBillingOpen] = useState(false);
@@ -188,9 +190,9 @@ export const CollaboratorsList = ({
         {avatarList.slice(0, 4).map((c) => (
           <div
             key={c.id}
-            className={`inline-flex items-center justify-center w-8 h-8 rounded-full border-2 border-white text-xs font-semibold tracking-wide cursor-default relative group shrink-0 ${getAvatarColor(
-              c.name
-            )}`}
+            className={`inline-flex items-center justify-center w-8 h-8 rounded-full border-2 text-xs font-medium tracking-wide cursor-default relative group shrink-0 transition-all ${
+              isDarkMode ? "border-[#18181b]" : "border-white"
+            } ${getAvatarColor(c.name)}`}
           >
             {getInitials(c.name)}
 
@@ -205,7 +207,11 @@ export const CollaboratorsList = ({
         ))}
 
         {avatarList.length > 4 && (
-          <div className="inline-flex items-center justify-center w-8 h-8 rounded-full border-2 border-white bg-[#f5f5f7] text-[#737373] text-xs font-semibold shrink-0 cursor-default relative group">
+          <div className={`inline-flex items-center justify-center w-8 h-8 rounded-full border-2 text-xs font-medium shrink-0 cursor-default relative group transition-all ${
+            isDarkMode 
+              ? "border-[#18181b] bg-[#27272a] text-neutral-400" 
+              : "border-white bg-[#f5f5f7] text-[#737373]"
+          }`}>
             +{avatarList.length - 4}
             <div className="absolute top-10 left-1/2 -translate-x-1/2 bg-black text-white text-[10px] font-medium tracking-wide py-1.5 px-3 rounded-md opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 shadow-md whitespace-nowrap z-50 flex flex-col gap-1 max-w-[200px]">
               {avatarList.slice(4).map((c) => (
@@ -219,26 +225,38 @@ export const CollaboratorsList = ({
       {/* Share / Invite — owner only */}
       {isOwner && !isLocked && (
         <div className="relative">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 py-0 px-3 flex items-center gap-1.5 text-xs"
+          <button
             onClick={() => setIsPopoverOpen(!isPopoverOpen)}
+            className={`inline-flex items-center justify-center font-medium transition-all duration-200 focus:outline-none focus:ring-1 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer rounded-xl h-8 py-0 px-3 flex items-center gap-1.5 text-xs border ${
+              isDarkMode
+                ? "bg-[#27272a] text-neutral-200 border-neutral-700/50 hover:bg-[#3f3f46] hover:border-neutral-500 focus:ring-white/10"
+                : "bg-white text-black border-[#e5e5e7] hover:border-black/30 hover:bg-[#f5f5f7] active:scale-[0.98] hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)] focus:ring-black/20"
+            }`}
           >
             <UserPlus size={13} className="stroke-[1.5]" />
             <span>Share</span>
-          </Button>
+          </button>
 
           {/* Popover Card */}
           {isPopoverOpen && (
-            <div className="absolute right-0 top-10 w-[320px] bg-white border border-[#e5e5e7] p-5 rounded-2xl shadow-[0_15px_35px_rgba(0,0,0,0.06)] z-50 animate-scale-in">
-              <div className="flex items-center justify-between mb-4 border-b border-[#f5f5f7] pb-2.5">
-                <span className="text-xs font-semibold text-black tracking-wide">
+            <div className={`absolute right-0 top-10 w-[320px] p-5 rounded-2xl border z-50 animate-scale-in transition-all ${
+              isDarkMode
+                ? "bg-[#18181b] border-[#27272a] shadow-[0_15px_35px_rgba(0,0,0,0.45)]"
+                : "bg-white border-[#e5e5e7] shadow-[0_15px_35px_rgba(0,0,0,0.06)]"
+            }`}>
+              <div className={`flex items-center justify-between mb-4 border-b pb-2.5 ${
+                isDarkMode ? "border-[#27272a]" : "border-[#f5f5f7]"
+              }`}>
+                <span className={`text-xs font-medium tracking-wide ${
+                  isDarkMode ? "text-neutral-200" : "text-black"
+                }`}>
                   Invite Collaborators
                 </span>
                 <button
                   onClick={() => setIsPopoverOpen(false)}
-                  className="text-[#737373] hover:text-black cursor-pointer"
+                  className={`cursor-pointer transition-colors ${
+                    isDarkMode ? "text-neutral-400 hover:text-white" : "text-[#737373] hover:text-black"
+                  }`}
                 >
                   <X size={14} />
                 </button>
@@ -246,19 +264,27 @@ export const CollaboratorsList = ({
 
               <form onSubmit={handleInvite} className="flex flex-col gap-4" noValidate>
                 <div className="flex gap-2">
-                  <div className="flex-grow">
-                    <Input
-                      placeholder="collaborator@example.com"
+                  <div className="flex-grow flex flex-col gap-1">
+                    <input
                       type="email"
+                      placeholder="collaborator@example.com"
                       value={email}
                       onChange={(e) => {
                         setEmail(e.target.value);
                         if (inviteError) setInviteError("");
                       }}
                       disabled={isPending}
-                      className="h-9 py-1 px-3 text-xs"
-                      error={inviteError}
+                      className={`w-full h-9 px-3 text-xs border rounded-lg transition-all duration-200 outline-none placeholder:text-neutral-500 ${
+                        isDarkMode
+                          ? "bg-[#27272a] text-neutral-200 border-neutral-700/50 focus:border-neutral-500 focus:ring-1 focus:ring-white/10"
+                          : "bg-white text-black border-[#e5e5e7] focus:border-black/40 focus:ring-1 focus:ring-black/10"
+                      } ${inviteError ? "border-red-500 focus:border-red-500" : ""}`}
                     />
+                    {inviteError && (
+                      <span className="text-[10px] text-red-500 tracking-wide mt-0.5 px-0.5">
+                        {inviteError}
+                      </span>
+                    )}
                   </div>
                   <select
                     value={invitePermission}
@@ -266,42 +292,60 @@ export const CollaboratorsList = ({
                       setInvitePermission(e.target.value as "read" | "edit")
                     }
                     disabled={isPending}
-                    className="h-9 px-2 text-xs bg-white border border-[#e5e5e7] rounded-lg outline-none focus:border-black/40 cursor-pointer text-[#737373] font-medium transition-colors hover:text-black shrink-0"
+                    className={`h-9 px-2 text-xs rounded-lg outline-none cursor-pointer font-medium transition-colors shrink-0 border ${
+                      isDarkMode
+                        ? "bg-[#27272a] text-neutral-300 border-neutral-700/50 hover:text-white focus:border-neutral-500"
+                        : "bg-white border-[#e5e5e7] text-[#737373] hover:text-black focus:border-black/40"
+                    }`}
                   >
                     <option value="read">Viewer</option>
                     <option value="edit">Editor</option>
                   </select>
                 </div>
-                <Button
-                  variant="primary"
+                <button
                   type="submit"
-                  size="sm"
-                  isLoading={isPending}
-                  className="h-9 py-0 w-full text-xs font-semibold"
+                  disabled={isPending}
+                  className={`w-full h-9 rounded-xl text-xs font-medium flex items-center justify-center transition-all duration-200 active:scale-[0.98] cursor-pointer border ${
+                    isDarkMode
+                      ? "bg-neutral-200 text-neutral-900 border-neutral-200 hover:bg-neutral-100 hover:border-neutral-100"
+                      : "bg-black text-white border-black hover:bg-black/90 hover:border-black/90"
+                  }`}
                 >
-                  Send Invite
-                </Button>
+                  {isPending ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    "Send Invite"
+                  )}
+                </button>
               </form>
 
               <button
                 onClick={handleCopyLink}
                 type="button"
-                className="w-full mt-3 py-2 border border-dashed border-[#e5e5e7] hover:border-black/30 rounded-xl text-xs font-medium text-black transition-all hover:bg-[#f5f5f7] flex items-center justify-center gap-1.5 cursor-pointer"
+                className={`w-full mt-3 py-2 border border-dashed rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  isDarkMode
+                    ? "border-neutral-700/50 hover:border-neutral-500 hover:bg-[#27272a] text-neutral-200"
+                    : "border-[#e5e5e7] hover:border-black/30 hover:bg-[#f5f5f7] text-black"
+                }`}
               >
-                <Copy size={12} className="text-[#737373]" />
+                <Copy size={12} className={isDarkMode ? "text-neutral-400" : "text-[#737373]"} />
                 Copy share link
               </button>
 
               {/* Member list inside popover — editable for owner */}
-              <div className="mt-4 pt-3 border-t border-[#f5f5f7] flex flex-col gap-2 max-h-[140px] overflow-y-auto custom-scrollbar">
-                <span className="text-[9px] font-bold text-[#737373] tracking-widest uppercase">
+              <div className={`mt-4 pt-3 border-t flex flex-col gap-2 max-h-[140px] overflow-y-auto custom-scrollbar ${
+                isDarkMode ? "border-[#27272a]" : "border-[#f5f5f7]"
+              }`}>
+                <span className={`text-[9px] font-bold tracking-widest uppercase ${
+                  isDarkMode ? "text-neutral-500" : "text-[#737373]"
+                }`}>
                   Members
                 </span>
                 {collaborators.map((c) => (
                   <div key={c.id} className="flex items-center justify-between gap-2 text-xs">
                     <div className="flex flex-col min-w-0">
-                      <span className="font-medium text-black truncate">{c.name}</span>
-                      <span className="text-[10px] text-[#737373] truncate">{c.email}</span>
+                      <span className={`font-medium truncate ${isDarkMode ? "text-neutral-200" : "text-black"}`}>{c.name}</span>
+                      <span className={`text-[10px] truncate ${isDarkMode ? "text-neutral-400" : "text-[#737373]"}`}>{c.email}</span>
                     </div>
                     <select
                       value={c.permission}
@@ -311,7 +355,11 @@ export const CollaboratorsList = ({
                           e.target.value as "read" | "edit" | "remove"
                         )
                       }
-                      className="text-[10px] font-medium text-[#737373] bg-[#f5f5f7] hover:bg-[#e5e5e7] hover:text-black py-0.5 px-1.5 rounded border border-black/5 outline-none cursor-pointer shrink-0 transition-colors"
+                      className={`text-[10px] font-medium py-0.5 px-1.5 rounded border outline-none cursor-pointer shrink-0 transition-colors ${
+                        isDarkMode
+                          ? "bg-[#27272a] hover:bg-[#3f3f46] text-neutral-300 hover:text-white border-neutral-700/50"
+                          : "bg-[#f5f5f7] hover:bg-[#e5e5e7] text-[#737373] hover:text-black border-black/5"
+                      }`}
                     >
                       <option value="read">Viewer</option>
                       <option value="edit">Editor</option>

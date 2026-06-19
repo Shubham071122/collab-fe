@@ -744,6 +744,11 @@ const CustomCanvasUI = ({ isReadOnly, projectName }: CustomCanvasUIProps) => {
     }
   }, [editor]);
 
+  const setIsDarkMode = useAppStore((state) => state.setIsDarkMode);
+  useEffect(() => {
+    setIsDarkMode(isDarkMode);
+  }, [isDarkMode, setIsDarkMode]);
+
   const isSnapMode = useValue("is snap mode", () => {
     try {
       return editor.user.getIsSnapMode();

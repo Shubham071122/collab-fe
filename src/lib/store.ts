@@ -9,6 +9,7 @@ interface AppState {
   syncStatus: "saved" | "saving";
   subscription: UserSubscription | null;
   plans: PlanConfig[];
+  isDarkMode: boolean;
   
   setUser: (user: User | null) => void;
   setProjects: (projects: Project[]) => void;
@@ -18,6 +19,7 @@ interface AppState {
   setSyncStatus: (status: "saved" | "saving") => void;
   setSubscription: (sub: UserSubscription | null) => void;
   setPlans: (plans: PlanConfig[]) => void;
+  setIsDarkMode: (isDark: boolean) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -29,6 +31,7 @@ export const useAppStore = create<AppState>()(
       syncStatus: "saved",
       subscription: null,
       plans: [],
+      isDarkMode: false,
 
       setUser: (user) => set({ user }),
       setProjects: (projects) => set({ projects }),
@@ -42,12 +45,14 @@ export const useAppStore = create<AppState>()(
       setSyncStatus: (status) => set({ syncStatus: status }),
       setSubscription: (subscription) => set({ subscription }),
       setPlans: (plans) => set({ plans }),
+      setIsDarkMode: (isDarkMode) => set({ isDarkMode }),
     }),
     {
       name: "collab-app-storage",
       partialize: (state) => ({
         user: state.user,
         subscription: state.subscription,
+        isDarkMode: state.isDarkMode,
       }),
     }
   )
