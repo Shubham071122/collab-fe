@@ -8,6 +8,7 @@ interface WebSocketMessage {
   projectId: string;
   userId: string;
   payload: any;
+  baseRevision?: number;
 }
 
 export function useWebSocket(projectId: string) {
@@ -167,7 +168,7 @@ export function useWebSocket(projectId: string) {
   }, [projectId, user]);
 
   const sendMessage = useCallback(
-    (type: string, payload: any) => {
+    (type: string, payload: any, baseRevision?: number) => {
       if (!user) return;
 
       const msg: WebSocketMessage = {
@@ -175,13 +176,18 @@ export function useWebSocket(projectId: string) {
         projectId,
         userId: user.id,
         payload,
+        baseRevision,
       };
 
       if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
         socketRef.current.send(JSON.stringify(msg));
       } else {
-        console.log(`WebSocket offline. Queueing message of type: ${type}`);
-        messageQueueRef.current.push(msg);
+        // Only queue non-canvas_change messages at the socket hook level.
+        // canvas_change updates are coalesced and queued in CanvasWorkspace.tsx.
+        if (type !== "canvas_change") {
+          console.log(`WebSocket offline. Queueing message of type: ${type}`);
+          messageQueueRef.current.push(msg);
+        }
       }
     },
     [projectId, user]

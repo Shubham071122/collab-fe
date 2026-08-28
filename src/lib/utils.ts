@@ -26,7 +26,7 @@ export function checkIsAccountLocked(
 ): boolean {
   if (!userId) return false;
   const activeTier = subscription?.tier || "free";
-  const ownedProjects = projects.filter((p) => p.owner_id === userId).length;
+  const ownedProjects = projects.filter((p) => p.owner_id === userId && !p.is_archived).length;
 
   if (activeTier === "free") {
     return ownedProjects > 2;

@@ -113,6 +113,71 @@ export const CanvasWorkspace = ({ project }: CanvasWorkspaceProps) => {
 	const router = useRouter();
 	const { isConnected, lastMessage, sendMessage } = useWebSocket(projectId);
 	const { user, projects, subscription } = useAppStore();
+
+	const revisionRef = useRef<number>(0);
+	const accumulatedChangesRef = useRef<{
+		added: Record<string, any>;
+		updated: Record<string, any>;
+		removed: Record<string, any>;
+	}>({ added: {}, updated: {}, removed: {} });
+	const pendingChangesRef = useRef<any>(null);
+
+	const mergeDiff = useCallback((newDiff: any) => {
+		const acc = accumulatedChangesRef.current;
+		
+		for (const [id, record] of Object.entries(newDiff.added || {})) {
+			acc.added[id] = record;
+			delete acc.removed[id];
+		}
+
+		for (const [id, change] of Object.entries(newDiff.updated || {})) {
+			const val = (change as any)[1];
+			if (acc.added[id]) {
+				acc.added[id] = val;
+			} else {
+				if (!acc.updated[id]) {
+					acc.updated[id] = change;
+				} else {
+					acc.updated[id] = [acc.updated[id][0], val];
+				}
+			}
+		}
+
+		for (const [id, record] of Object.entries(newDiff.removed || {})) {
+			if (acc.added[id]) {
+				delete acc.added[id];
+			} else {
+				acc.removed[id] = record;
+				delete acc.updated[id];
+			}
+		}
+	}, []);
+
+	const flushChanges = useCallback(() => {
+		if (!isConnected || pendingChangesRef.current !== null) {
+			return;
+		}
+
+		const acc = accumulatedChangesRef.current;
+		const hasChanges =
+			Object.keys(acc.added).length > 0 ||
+			Object.keys(acc.updated).length > 0 ||
+			Object.keys(acc.removed).length > 0;
+
+		if (!hasChanges) return;
+
+		pendingChangesRef.current = acc;
+		accumulatedChangesRef.current = { added: {}, updated: {}, removed: {} };
+
+		useAppStore.getState().setSyncStatus("saving");
+		sendMessage("canvas_change", pendingChangesRef.current, revisionRef.current);
+	}, [isConnected, sendMessage]);
+
+	useEffect(() => {
+		if (isConnected) {
+			flushChanges();
+		}
+	}, [isConnected, flushChanges]);
 	const [editor, setEditor] = useState<Editor | null>(null);
 	const isOwner = !!user && user.id === ownerId;
 
@@ -307,6 +372,9 @@ export const CanvasWorkspace = ({ project }: CanvasWorkspaceProps) => {
       if (initialCanvas) {
         try {
           loadedSnapshot = JSON.parse(initialCanvas);
+          if (loadedSnapshot && typeof loadedSnapshot.revision === "number") {
+            revisionRef.current = loadedSnapshot.revision;
+          }
         } catch (e) {
           console.error("Failed to parse initial canvas snapshot:", e);
         }
@@ -315,6 +383,9 @@ export const CanvasWorkspace = ({ project }: CanvasWorkspaceProps) => {
         if (localData) {
           try {
             loadedSnapshot = JSON.parse(localData);
+            if (loadedSnapshot && typeof loadedSnapshot.revision === "number") {
+              revisionRef.current = loadedSnapshot.revision;
+            }
           } catch (e) {
             console.error("Failed to parse canvas data from localStorage:", e);
           }
@@ -506,12 +577,13 @@ export const CanvasWorkspace = ({ project }: CanvasWorkspaceProps) => {
               Object.keys(removedDoc).length > 0;
 
             if (hasDocChanges) {
-              useAppStore.getState().setSyncStatus("saving");
-              sendMessage("canvas_change", {
+              const diffPayload = {
                 added: addedDoc,
                 updated: updatedDoc,
                 removed: removedDoc,
-              });
+              };
+              mergeDiff(diffPayload);
+              flushChanges();
             }
           }
 
@@ -536,7 +608,7 @@ export const CanvasWorkspace = ({ project }: CanvasWorkspaceProps) => {
     return () => {
       unsubscribe();
     };
-  }, [editor, isReadOnly, saveToLocalStorageDebounced, sendMessage]);
+  }, [editor, isReadOnly, saveToLocalStorageDebounced, sendMessage, mergeDiff, flushChanges]);
 
   // Send local pointer position to collaborators
   useEffect(() => {
@@ -583,10 +655,48 @@ export const CanvasWorkspace = ({ project }: CanvasWorkspaceProps) => {
             lastUpdate: Date.now(),
           },
         }));
-      } else if (lastMessage.type === "canvas_change" || lastMessage.type === "presence_change") {
-        // console.log("WebSocket received remote change:", lastMessage.type, lastMessage.payload);
-        const { added, updated, removed } = lastMessage.payload;
+      } else if (lastMessage.type === "canvas_change") {
+        if (typeof lastMessage.baseRevision === "number") {
+          revisionRef.current = lastMessage.baseRevision;
+        }
 
+        const { added, updated, removed } = lastMessage.payload;
+        editor.store.mergeRemoteChanges(() => {
+          if (added && Object.keys(added).length > 0) {
+            editor.store.put(Object.values(added));
+          }
+          if (updated && Object.keys(updated).length > 0) {
+            const updatedRecords = Object.values(updated).map((change: any) => change[1]);
+            editor.store.put(updatedRecords);
+          }
+          if (removed && Object.keys(removed).length > 0) {
+            editor.store.remove(Object.keys(removed) as any[]);
+          }
+        });
+
+        if (lastMessage.userId === user?.id) {
+          pendingChangesRef.current = null;
+          flushChanges();
+        }
+      } else if (lastMessage.type === "canvas_conflict") {
+        const latestSnapshot = lastMessage.payload;
+        console.log("OCC conflict received. Re-syncing with revision:", latestSnapshot.revision);
+
+        revisionRef.current = latestSnapshot.revision;
+
+        if (latestSnapshot.store) {
+          editor.store.mergeRemoteChanges(() => {
+            editor.store.put(Object.values(latestSnapshot.store));
+          });
+        }
+
+        if (pendingChangesRef.current) {
+          mergeDiff(pendingChangesRef.current);
+          pendingChangesRef.current = null;
+        }
+        flushChanges();
+      } else if (lastMessage.type === "presence_change") {
+        const { added, updated, removed } = lastMessage.payload;
         editor.store.mergeRemoteChanges(() => {
           if (added && Object.keys(added).length > 0) {
             editor.store.put(Object.values(added));
@@ -601,7 +711,7 @@ export const CanvasWorkspace = ({ project }: CanvasWorkspaceProps) => {
         });
       }
     }
-  }, [editor, lastMessage, user]);
+  }, [editor, lastMessage, user, mergeDiff, flushChanges]);
 
   useEffect(() => {
     if (!lastMessage || !user) return;
@@ -611,7 +721,7 @@ export const CanvasWorkspace = ({ project }: CanvasWorkspaceProps) => {
       console.log("Permission updated in real-time:", permission);
       if (permission === "read") {
         setIsReadOnly(true);
-      } else if (permission === "edit") {
+      } else if (permission === "edit" || permission === "owner") {
         setIsReadOnly(false);
       }
     } else if (lastMessage.type === "access_revoked") {

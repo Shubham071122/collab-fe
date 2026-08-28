@@ -143,7 +143,7 @@ export async function getProjectsAction(
 
 export async function updateProjectAction(
   id: string,
-  data: { name?: string; description?: string; canvas?: string }
+  data: { name?: string; description?: string; canvas?: string; is_archived?: boolean }
 ): Promise<ActionResponse<Project>> {
   const userId = await getUserIdFromToken();
   if (!userId) return { success: false, message: "Unauthorized." };

@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { Trash2 } from "lucide-react";
+import { Trash2, LogOut, Archive } from "lucide-react";
 import { Project, Collaborator } from "@/types";
 import { Button } from "@/components/common/Button";
 import { useState, useEffect } from "react";
+import { useAppStore } from "@/lib/store";
 import { getProjectMembersAction } from "../../../actions/collaboration.actions";
 
 interface ProjectCardProps {
@@ -13,6 +14,8 @@ interface ProjectCardProps {
   onDelete: (id: string) => void;
   isDeleting: boolean;
   isAccountLocked: boolean;
+  onLeave?: (id: string) => void;
+  onArchive?: (id: string, archive: boolean) => void;
 }
 
 function getInitials(name: string): string {
@@ -44,23 +47,32 @@ export const ProjectCard = ({
   onDelete,
   isDeleting,
   isAccountLocked,
+  onLeave,
+  onArchive,
 }: ProjectCardProps) => {
   const isOwner = project.owner_id === currentUserId;
-  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
-  const [owner, setOwner] = useState<Collaborator | null>(null);
-  const [totalCount, setTotalCount] = useState(1);
+  const projectMembers = useAppStore((state) => state.projectMembers[project.id]);
+  const setProjectMembers = useAppStore((state) => state.setProjectMembers);
+
+  const collaborators = projectMembers?.collaborators || [];
+  const owner = projectMembers?.owner || null;
+  const totalCount = projectMembers?.total_count ?? 1;
 
   useEffect(() => {
+    if (projectMembers) return;
+
     const fetchMembers = async () => {
       const res = await getProjectMembersAction(project.id);
       if (res.success && res.data) {
-        setCollaborators(res.data.collaborators || []);
-        setOwner(res.data.owner || null);
-        setTotalCount(res.data.total_count);
+        setProjectMembers(project.id, {
+          collaborators: res.data.collaborators || [],
+          owner: res.data.owner || null,
+          total_count: res.data.total_count,
+        });
       }
     };
     fetchMembers();
-  }, [project.id]);
+  }, [project.id, projectMembers, setProjectMembers]);
 
   const getRelativeTime = (isoString: string) => {
     try {
@@ -97,6 +109,11 @@ export const ProjectCard = ({
                 Shared
               </span>
             )}
+            {project.is_archived && (
+              <span className="inline-flex items-center bg-amber-50 text-amber-700 border border-amber-200/50 text-[9px] font-medium px-2 py-0.5 rounded-full select-none shrink-0">
+                Archived
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {project.is_locked && (
@@ -105,6 +122,15 @@ export const ProjectCard = ({
               </span>
             )}
             
+            {isOwner && onArchive && (
+              <button
+                onClick={() => onArchive(project.id, !project.is_archived)}
+                className="text-[#737373] hover:text-amber-600 opacity-0 group-hover:opacity-100 transition-all duration-200 p-1 rounded hover:bg-amber-50 cursor-pointer shrink-0"
+                title={project.is_archived ? "Restore Project" : "Archive Project"}
+              >
+                <Archive size={14} className="stroke-[1.5]" />
+              </button>
+            )}
             {isOwner && (
               <button
                 onClick={() => onDelete(project.id)}
@@ -113,6 +139,15 @@ export const ProjectCard = ({
                 title="Delete Project"
               >
                 <Trash2 size={14} className="stroke-[1.5]" />
+              </button>
+            )}
+            {!isOwner && onLeave && (
+              <button
+                onClick={() => onLeave(project.id)}
+                className="text-[#737373] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all duration-200 p-1 rounded hover:bg-red-50 cursor-pointer shrink-0"
+                title="Leave Project"
+              >
+                <LogOut size={14} className="stroke-[1.5]" />
               </button>
             )}
           </div>

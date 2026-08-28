@@ -9,8 +9,10 @@ import { CreateProjectModal } from "./CreateProjectModal";
 import { DeleteConfirmationModal } from "./DeleteConfirmationModal";
 import { Button } from "@/components/common/Button";
 import { Input } from "@/components/common/Input";
-import { getProjectsAction, deleteProjectAction } from "../../../actions/project.actions";
+import { getProjectsAction, deleteProjectAction, updateProjectAction } from "../../../actions/project.actions";
+import { removeCollaboratorAction } from "../../../actions/collaboration.actions";
 import { getCurrentUserAction } from "../../../actions/auth.actions";
+import { LeaveConfirmationModal } from "./LeaveConfirmationModal";
 import { getSubscriptionAction } from "../../../actions/subscription.actions";
 import { BillingModal } from "./BillingModal";
 import { toast } from "sonner";
@@ -22,6 +24,9 @@ export const DashboardContent = () => {
   const [mounted, setMounted] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [projectToLeave, setProjectToLeave] = useState<{ id: string; name: string } | null>(null);
+  const [isLeavingId, setIsLeavingId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
   const [searchQuery, setSearchQuery] = useState("");
   const [greeting, setGreeting] = useState("Hello");
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
@@ -115,6 +120,47 @@ export const DashboardContent = () => {
     }
   };
 
+  const handleArchive = async (id: string, archive: boolean) => {
+    try {
+      const res = await updateProjectAction(id, { is_archived: archive });
+      if (res.success && res.data) {
+        const updatedProjects = projects.map((p) => p.id === id ? { ...p, is_archived: archive } : p);
+        setProjects(updatedProjects);
+        toast.success(archive ? "Project archived successfully" : "Project restored successfully");
+      } else {
+        toast.error(res.message || "Failed to update project archive status");
+      }
+    } catch {
+      toast.error("An error occurred");
+    }
+  };
+
+  const handleLeaveTrigger = (id: string) => {
+    const proj = projects.find((p) => p.id === id);
+    if (proj) {
+      setProjectToLeave({ id, name: proj.name });
+    }
+  };
+
+  const confirmLeave = async () => {
+    if (!projectToLeave || !user) return;
+    setIsLeavingId(projectToLeave.id);
+    try {
+      const res = await removeCollaboratorAction(projectToLeave.id, user.id);
+      if (res.success) {
+        removeProject(projectToLeave.id);
+        toast.success("You have left the project successfully");
+        setProjectToLeave(null);
+      } else {
+        toast.error(res.message || "Failed to leave project");
+      }
+    } catch {
+      toast.error("An error occurred while leaving the project");
+    } finally {
+      setIsLeavingId(null);
+    }
+  };
+
   if (!mounted || !user) {
     return (
       <div className="flex-grow flex items-center justify-center min-h-[60vh] bg-white">
@@ -142,8 +188,16 @@ export const DashboardContent = () => {
 
   const activeTier = subscription?.tier || "free";
   const maxProjects = activeTier === "gold" ? -1 : activeTier === "silver" ? 5 : 2;
-  const ownedProjects = projects.filter((p) => p.owner_id === user?.id).length;
+  const ownedProjects = projects.filter((p) => p.owner_id === user?.id && !p.is_archived).length;
   const isLocked = checkIsAccountLocked(subscription, projects, user?.id);
+
+  const tabProjects = projects.filter((p) => {
+    if (activeTab === "active") {
+      return !p.is_archived;
+    } else {
+      return p.is_archived;
+    }
+  });
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-12 w-full animate-fade-in flex flex-col gap-10">
@@ -195,6 +249,29 @@ export const DashboardContent = () => {
         </Button>
       </div>
 
+      <div className="flex items-center gap-1 border-b border-[#e5e5e7] pb-1">
+        <button
+          onClick={() => setActiveTab("active")}
+          className={`text-xs font-semibold px-4 py-2 relative transition-all duration-200 cursor-pointer ${
+            activeTab === "active"
+              ? "text-black border-b-2 border-black"
+              : "text-[#737373] hover:text-black"
+          }`}
+        >
+          Active Projects
+        </button>
+        <button
+          onClick={() => setActiveTab("archived")}
+          className={`text-xs font-semibold px-4 py-2 relative transition-all duration-200 cursor-pointer ${
+            activeTab === "archived"
+              ? "text-black border-b-2 border-black"
+              : "text-[#737373] hover:text-black"
+          }`}
+        >
+          Archived
+        </button>
+      </div>
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="relative max-w-sm w-full">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-black/30" />
@@ -235,7 +312,7 @@ export const DashboardContent = () => {
         </div>
       </div>
 
-      {isPending && projects.length === 0 ? (
+      {isPending && tabProjects.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 bg-white">
           <svg
             className="animate-spin h-5 w-5 text-black"
@@ -251,18 +328,24 @@ export const DashboardContent = () => {
             />
           </svg>
         </div>
-      ) : projects.length === 0 ? (
+      ) : tabProjects.length === 0 ? (
         <div className="border border-dashed border-[#e5e5e7] rounded-3xl py-20 px-6 flex flex-col items-center justify-center text-center bg-white">
           <div className="w-12 h-12 rounded-xl bg-[#f5f5f7] border border-black/5 flex items-center justify-center text-[#737373] mb-5">
             <SearchX size={20} className="stroke-[1.5]" />
           </div>
           <h3 className="text-lg font-medium text-black tracking-tight mb-2">
-            {searchQuery ? "No projects found" : "No projects yet"}
+            {searchQuery 
+              ? "No projects found" 
+              : activeTab === "archived" 
+                ? "No archived projects" 
+                : "No projects yet"}
           </h3>
           <p className="text-xs sm:text-sm text-[#737373] font-light max-w-sm leading-relaxed mb-6">
             {searchQuery
-              ? `We couldn't find any projects matching "${searchQuery}". Try editing your search query.`
-              : "Every great workflow starts on a clean slate. Create your first project board to start collaborating with your team."}
+              ? `We couldn't find any projects matching "${searchQuery}".`
+              : activeTab === "archived"
+                ? "Archived projects will appear here. You can restore them at any time."
+                : "Every great workflow starts on a clean slate. Create your first project board to start collaborating with your team."}
           </p>
           {!searchQuery && (
             <Button
@@ -277,12 +360,14 @@ export const DashboardContent = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-scale-in">
-          {projects.map((proj) => (
+          {tabProjects.map((proj) => (
             <ProjectCard
               key={proj.id}
               project={proj}
               currentUserId={user.id}
               onDelete={handleDeleteTrigger}
+              onLeave={handleLeaveTrigger}
+              onArchive={handleArchive}
               isDeleting={isDeletingId === proj.id}
               isAccountLocked={isLocked}
             />
@@ -305,6 +390,14 @@ export const DashboardContent = () => {
         onConfirm={confirmDelete}
         projectName={projectToDelete?.name}
         isPending={isDeletingId !== null}
+      />
+
+      <LeaveConfirmationModal
+        isOpen={!!projectToLeave}
+        onClose={() => setProjectToLeave(null)}
+        onConfirm={confirmLeave}
+        projectName={projectToLeave?.name}
+        isPending={isLeavingId !== null}
       />
 
 

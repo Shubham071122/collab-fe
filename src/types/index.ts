@@ -12,6 +12,7 @@ export interface Project {
   description: string;
   canvas: string;
   is_locked: boolean;
+  is_archived: boolean;
   created_at: string;
   updated_at: string;
 }
